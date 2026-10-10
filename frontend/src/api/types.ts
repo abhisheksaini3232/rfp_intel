@@ -214,16 +214,27 @@ export interface ExtractionFieldResult {
   gold: unknown;
   output: unknown;
   score: ExtractionScore;
-  citations?: unknown;
+  citations?: number;
+  counted?: boolean;
+  reason?: string;
 }
 
+/** One bid in eval/results/extraction.json (written by eval/run_extraction_eval.py). */
 export interface ExtractionBidResult {
+  bid_id: string;
   fields: ExtractionFieldResult[];
-  summary: { exact?: number; partial?: number; wrong?: number; accuracy?: number };
+  exact: number;
+  partial: number;
+  wrong: number;
+  scored_fields: number;
+  accuracy: number;
+  fields_with_citations?: number;
+  values_without_citation?: number;
 }
 
 export interface ExtractionEval {
-  bids: Record<string, ExtractionBidResult>;
+  judge: boolean;
+  bids: ExtractionBidResult[];
 }
 
 export interface ApiErrorBody {

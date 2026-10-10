@@ -15,6 +15,12 @@ For each field decide:
   Paraphrasing, summarising or combining several passages (for example a list that merges
   the RFP text with an addendum) is fine as long as every factual claim appears in the
   evidence; judge each item of a list value on its own facts.
+  Judge the value, not the notes. Qualifications that only describe the evidence ("only if
+  requested by the State", "no delivery window is stated", "no further specifications are
+  given") are not added facts. A conclusion that follows directly from the evidence is
+  supported (for example "all other terms remain unchanged" means only the stated item
+  changed). Mark a field unsupported only when a date, number, name, amount or requirement
+  in the value is absent from or contradicted by the evidence.
 - reason: one short sentence. If unsupported, say what is missing or contradicted.
 
 Use ONLY the evidence passages. If the evidence does not contain the answer, the field is

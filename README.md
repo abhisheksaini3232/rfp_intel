@@ -46,7 +46,7 @@ pytest -q
 LLM_PROVIDER=openai                # or anthropic
 LLM_API_KEY=...
 EXTRACT_MODEL=gpt-6-luna           # fast, low-cost: the three extractor agents
-REASON_MODEL=gpt-6-sol             # stronger: reconciliation, validation, Q&A, summary
+REASON_MODEL=gpt-5.4-mini          # stronger: reconciliation, validation, Q&A, summary
 # LLM_DEV_CACHE=1                  # optional: cache identical LLM calls on disk while developing
 ```
 
@@ -237,7 +237,7 @@ table; "Can bids be emailed?"). Per-question ranks:
 | system | Bid1 exact / partial / wrong | Bid1 accuracy | Bid2 exact / partial / wrong | Bid2 accuracy |
 |---|---|---|---|---|
 | baseline (single pass) | 15 / 2 / 2 | 0.842 | 16 / 2 / 1 | 0.895 |
-| multi-agent graph | 16 / 2 / 1 | **0.895** | 15 / 3 / 1 | 0.868 |
+| multi-agent graph | 16 / 2 / 1 | **0.895** | 16 / 2 / 1 | **0.895** |
 
 accuracy = (exact + 0.5 x partial) / 19, strict `must_contain` tokens plus an
 LLM judge for free-text fields. The two systems share the extraction code,
@@ -250,9 +250,10 @@ value cited), and a trace with explicit retries. Full tables:
 [eval/results/baseline/extraction.md](eval/results/baseline/extraction.md).
 
 Validation counts of the delivered records: Bid1 17 passed / 0 failed /
-3 not_found; Bid2 18 / 0 / 2. A run costs about $0.06-0.25 in LLM calls
-(gpt-6-luna for the extractors, gpt-6-sol for the rest) and 2-6 minutes on
-CPU, most of it retrieval.
+3 not_found; Bid2 17 / 1 / 2. A run costs about $0.03-0.07 in LLM calls
+(gpt-6-luna for the extractors, gpt-5.4-mini for reconciliation, validation,
+Q&A and the summary; see docs/ASSUMPTIONS.md 86 for the model choice) and
+2-6 minutes on CPU, most of it retrieval.
 
 ### Unseen bid
 

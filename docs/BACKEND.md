@@ -459,7 +459,7 @@ state's `usage` list:
 {"run_id": "...", "step": 10, "agent": "Validator", "node": "validate",
  "started_at": "2026-10-10T09:04:57.102+00:00",
  "input_summary": "run_id='...', bid_ids=list[1], evidence=dict[18], drafts=dict[19], ...",
- "tool_calls": [{"kind": "llm", "model": "gpt-6-sol", "tokens_in": 3900, "tokens_out": 210, "cost_usd": 0.0099, "latency_ms": 5200, "schema": "SupportChecks"},
+ "tool_calls": [{"kind": "llm", "model": "gpt-5.4-mini", "tokens_in": 3900, "tokens_out": 210, "cost_usd": 0.0039, "latency_ms": 5200, "schema": "SupportChecks"},
                 {"kind": "validation", "passed": 17, "failed": {"Bid Submission Type": "failed: supported"}, "to_retry": ["Bid Submission Type"]}],
  "output_summary": "validation=dict[19], drafts=dict[19], retries=dict[1], to_retry=list[1], widened=True",
  "tokens_in": 3900, "tokens_out": 210, "cost_usd": 0.0099, "latency_ms": 19034, "error": null}

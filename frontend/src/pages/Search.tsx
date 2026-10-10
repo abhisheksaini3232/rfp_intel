@@ -122,7 +122,7 @@ export function SearchPage() {
             {hits.length} result{hits.length === 1 ? "" : "s"} · {submitted.config}
           </p>
           {hits.map((hit) => (
-            <SearchResultCard key={hit.chunk.chunk_id} hit={hit} query={submitted.q} />
+            <SearchResultCard key={`${hit.chunk.bid_id}:${hit.chunk.chunk_id}`} hit={hit} query={submitted.q} />
           ))}
         </div>
       )}

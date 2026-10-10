@@ -31,32 +31,32 @@ Scoring: must_contain tokens (strict); LLM judge on for fields without tokens. F
 
 | field | gold | output | score | citations |
 |---|---|---|---|---|
-| Bid Number | PORFP #E20P4600040; eMMA BPM044557 | #E20P4600040; BPM044557; 00004079359 | exact | 2 |
+| Bid Number | PORFP #E20P4600040; eMMA BPM044557 | #E20P4600040; BPM044557; 00004079359 | exact | 3 |
 | Title | Dell Laptops w/Extended Warranty | Dell Laptops w/Extended Warranty | exact | 1 |
 | Due Date | June 10, 2024 2:00 PM EDT | 06/10/2024 02:00 PM EDT | exact | 1 |
-| Bid Submission Type | Electronic only via eMMA; no email, fax, mail or hand delivery | Submit through the State's eMaryland Marketplace Advantage (eMMA) e-Procurement system.... | exact | 1 |
+| Bid Submission Type | Electronic only via eMMA; no email, fax, mail or hand delivery | Submit through the State's eMaryland Marketplace Advantage (eMMA) e-Procurement system;... | exact | 1 |
 | Term of Bid | One-time fixed-price purchase order; proposals valid for at least 90 days | Proposals/quotes must be valid for at least 90 days after the set due date. | exact | 1 |
 | Pre Bid Meeting | None |  | exact | 0 |
-| Installation |  | The Dell configuration lists factory installation, a Custom Asset Report, and a Consign... | wrong | 1 |
+| Installation |  | Factory installation is listed, along with a Custom Asset Report and Consigned Asset Tag. | wrong | 1 |
 | Bid Bond Requirement |  |  | exact | 0 |
-| Delivery Date | Within 45 days of award, to 80 Calvert St, Annapolis | Within 45 days of Award; delivery address: 80 Calvert Street, Room 109, Annapolis, MD 2... | exact | 1 |
-| Payment Terms | No Net terms stated; invoice within 10 days of delivery with PORFP number and proof of ... | Email invoices to STOaccountspayable@treasurer.state.md.us within 10 days of delivering... | exact | 1 |
-| Any Additional Documentation Required | Contract Affidavit, Mercury Affidavit, warranty certificate on award, Dell letter of au... | Mercury Affidavit.; Letter of Authorization (LOA) from the Manufacturer or Distributor,... | partial | 2 |
-| MFG for Registration | Dell (authorized reseller) | Dell — the Master Contractor must be an authorized reseller; the State reserves the rig... | exact | 1 |
+| Delivery Date | Within 45 days of award, to 80 Calvert St, Annapolis | Delivery within 45 days of Award; delivery address: 80 Calvert Street, Room 109, Annapo... | exact | 2 |
+| Payment Terms | No Net terms stated; invoice within 10 days of delivery with PORFP number and proof of ... | Email invoices to STOaccountspayable@treasurer.state.md.us. Submit invoices within 10 d... | exact | 1 |
+| Any Additional Documentation Required | Contract Affidavit, Mercury Affidavit, warranty certificate on award, Dell letter of au... | Mercury Affidavit; Letter of Authorization (LOA) from the Manufacturer or Distributor, ... | partial | 3 |
+| MFG for Registration | Dell (authorized reseller) | Dell — the Master Contractor must be an authorized reseller; the State may request a Le... | exact | 1 |
 | Contract or Cooperative to use | Maryland Desktop, Laptop and Tablet 2015 Master Contract 060B5400007; Small Business Re... | Desktop, Laptop and Tablet 2015 Master Contract, 060B5400007 | exact | 1 |
-| Model_no | Dell Latitude 5550; WD22TB4 | SI# CC7802; WD22TB4 | partial | 1 |
-| Part_no | SI# CC7802; WD22TB4; 210-BLYZ | 210-BLYZ | partial | 1 |
-| Product | 30 Dell Latitude 5550 laptops, 30 WD22TB4 docking stations, 3-year extended warranty | 30 × Dell Latitude 5550 (SI# CC7802); 30 × Dell Thunderbolt 4 Dock – WD22TB4 | exact | 1 |
-| contact_info | Tamaira Hawkins, 410-260-7533, thawkins@treasurer.state.md.us | Tamaira Hawkins — 410-260-7533 — Thawkins@treasurer.state.md.us; James Simpson — 410-26... | exact | 2 |
+| Model_no | Dell Latitude 5550; WD22TB4 | CC7802; WD22TB4 | partial | 2 |
+| Part_no | SI# CC7802; WD22TB4; 210-BLYZ | 210-BLYZ; CC7802; WD22TB4 | exact | 3 |
+| Product | 30 Dell Latitude 5550 laptops, 30 WD22TB4 docking stations, 3-year extended warranty | Dell Latitude 5550 (SI# CC7802) — 30; Dell Thunderbolt 4 Dock (WD22TB4) — 30 | exact | 2 |
+| contact_info | Tamaira Hawkins, 410-260-7533, thawkins@treasurer.state.md.us | Tamaira Hawkins — 410-260-7533 — thawkins@treasurer.state.md.us; James Simpson — 410-26... | exact | 4 |
 | company_name | Maryland State Treasurer's Office | State of Maryland Treasurer's Office | exact | 1 |
-| Bid Summary |  | The State of Maryland Treasurer’s Office is procuring 30 Dell Latitude 5550 laptops and... | partial (not counted) | 24 |
-| Product Specification | Intel Core Ultra 5 125U, 16 GB DDR5, 256 GB NVMe SSD, 15.6" FHD non-touch display, Wi-F... | Dell Latitude 5550: Intel Core Ultra 5 125U processor (12 MB cache, 12 cores, 14 thread... | exact | 5 |
+| Bid Summary |  | The State of Maryland Treasurer’s Office is procuring Dell Laptops w/Extended Warranty ... | partial (not counted) | 26 |
+| Product Specification | Intel Core Ultra 5 125U, 16 GB DDR5, 256 GB NVMe SSD, 15.6" FHD non-touch display, Wi-F... | CPU: Intel Core Ultra 5 125U processor (12 MB cache, 12 cores, 14 threads, up to 4.3 GH... | exact | 8 |
 
 ## Summary
 
 | bid | fields | exact | partial | wrong | accuracy | with citations | values w/o citation |
 |---|---|---|---|---|---|---|---|
 | Bid1 | 19 | 16 | 2 | 1 | 0.895 | 17 | 0 |
-| Bid2 | 19 | 15 | 3 | 1 | 0.868 | 18 | 0 |
+| Bid2 | 19 | 16 | 2 | 1 | 0.895 | 18 | 0 |
 
 accuracy = (exact + 0.5 * partial) / scored fields

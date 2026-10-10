@@ -415,3 +415,32 @@ Each entry: decision, reason, phase it was made in.
     addendum lists are acceptable when every factual claim is in the
     evidence; the plan's rule (keep value, status failed, low confidence)
     is unchanged.
+86. **Cheaper reasoning model (2026-10-10).** `REASON_MODEL` moved from
+    gpt-6-sol ($2 / $10 per 1M tokens) to gpt-5.4-mini ($0.75 / $4.50);
+    `EXTRACT_MODEL` stays gpt-6-luna ($0.10 / $0.50). Measured on the Bid2
+    trace (44k/7k extractor tokens, 32k/7k reasoning tokens) a run costs
+    about $0.14 with gpt-6-sol, $0.06 with gpt-5.4-mini and $0.015 with
+    gpt-6-luna for everything. gpt-6-luna as the reasoner was tried and
+    rejected: Bid2 accuracy fell to 0.816 (Model_no / Part_no lost during
+    reconcile + validate retries). gpt-5.4-mini keeps 0.895 on both bids.
+    Its validator is more literal than gpt-6-sol's: a first run failed 8
+    Bid2 fields and rejected a correct "Addendum 2 changed only the due
+    date" answer because the inference was "not stated". `validate.md` now
+    says to judge the value (not the notes), that qualifications which only
+    describe the evidence are not added facts, and that a conclusion which
+    follows directly from the evidence is supported; a field is unsupported
+    only when a date, number, name, amount or requirement is absent or
+    contradicted. With that prompt Bid2 validates 17 / 1 / 2 in 21 steps.
+    The cost table in `config/settings.yaml` has the new model.
+87. **Browser end-to-end pass of the web app (Playwright, 31 checks)**
+    found and fixed three UI bugs: the Evaluation page expected
+    `bids` as an object with a `summary` block while
+    `eval/results/extraction.json` writes a list with the counts at the top
+    level (the extraction section rendered empty); a citation chip inside a
+    Fields-table row bubbled its click to the row, which re-opened the
+    drawer without the active citation (the chip now stops propagation);
+    search result cards were keyed by `chunk_id` alone, which collides when
+    two bids contain the same file (chunk ids hash file content), so the
+    key is now `bid_id:chunk_id`. The Playwright script lives outside the
+    repo (it needs the live API and real LLM calls) and is not part of
+    `npm test`.

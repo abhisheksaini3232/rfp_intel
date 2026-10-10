@@ -23,8 +23,18 @@ export function CitationChip({ citation, index, active, onClick }: CitationChipP
     </>
   );
   if (!onClick) return <span className={classes}>{content}</span>;
+  // Chips sit inside clickable rows/cards: stop the click so the parent's
+  // handler does not re-open the drawer without the active citation.
   return (
-    <button type="button" className={classes} onClick={onClick} title={citation.quote}>
+    <button
+      type="button"
+      className={classes}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={citation.quote}
+    >
       {content}
     </button>
   );

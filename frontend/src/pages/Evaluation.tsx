@@ -198,24 +198,33 @@ function show(value: unknown): string {
 }
 
 function ExtractionSection({ data }: { data: ExtractionEval }) {
-  const bids = Object.entries(data.bids ?? {});
+  const bids = Array.isArray(data.bids) ? data.bids : [];
   if (bids.length === 0) {
     return <EmptyState title="No extraction results yet" message={EVAL_HINT} />;
   }
   return (
     <div className="space-y-4">
-      {bids.map(([bidId, result]) => {
-        const fields: ExtractionFieldResult[] = Array.isArray(result?.fields) ? result.fields : [];
-        const s = result?.summary ?? {};
+      <p className="text-xs text-muted-foreground">
+        Exact = every gold token present; partial = {data.judge ? "LLM judge: same meaning" : "value present (judge off)"};
+        accuracy = (exact + partial) / scored fields.
+      </p>
+      {bids.map((result) => {
+        const fields: ExtractionFieldResult[] = Array.isArray(result.fields) ? result.fields : [];
         return (
-          <Card key={bidId}>
+          <Card key={result.bid_id}>
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-              <CardTitle className="font-mono">{bidId}</CardTitle>
+              <CardTitle className="font-mono">{result.bid_id}</CardTitle>
               <div className="flex flex-wrap gap-1.5 text-xs">
-                {typeof s.accuracy === "number" && <Badge>accuracy {(s.accuracy * 100).toFixed(0)}%</Badge>}
-                {typeof s.exact === "number" && <Badge variant="outline" className={SCORE_CLASS.exact}>{s.exact} exact</Badge>}
-                {typeof s.partial === "number" && <Badge variant="outline" className={SCORE_CLASS.partial}>{s.partial} partial</Badge>}
-                {typeof s.wrong === "number" && <Badge variant="outline" className={SCORE_CLASS.wrong}>{s.wrong} wrong</Badge>}
+                <Badge>accuracy {(result.accuracy * 100).toFixed(0)}%</Badge>
+                <Badge variant="outline" className={SCORE_CLASS.exact}>{result.exact} exact</Badge>
+                <Badge variant="outline" className={SCORE_CLASS.partial}>{result.partial} partial</Badge>
+                <Badge variant="outline" className={SCORE_CLASS.wrong}>{result.wrong} wrong</Badge>
+                <Badge variant="outline" className="text-muted-foreground">{result.scored_fields} scored</Badge>
+                {typeof result.values_without_citation === "number" && (
+                  <Badge variant="outline" className={result.values_without_citation > 0 ? SCORE_CLASS.wrong : "text-muted-foreground"}>
+                    {result.values_without_citation} without citation
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -229,16 +238,20 @@ function ExtractionSection({ data }: { data: ExtractionEval }) {
                       <TableHead>Gold</TableHead>
                       <TableHead>Output</TableHead>
                       <TableHead>Score</TableHead>
+                      <TableHead>Reason</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fields.map((f, i) => (
-                      <TableRow key={`${f.field}-${i}`}>
+                      <TableRow key={`${f.field}-${i}`} className={f.counted === false ? "text-muted-foreground" : undefined}>
                         <TableCell className="font-medium">{f.field}</TableCell>
                         <TableCell className="max-w-xs"><span className="line-clamp-2" title={show(f.gold)}>{show(f.gold)}</span></TableCell>
                         <TableCell className="max-w-xs"><span className="line-clamp-2" title={show(f.output)}>{show(f.output)}</span></TableCell>
                         <TableCell>
                           <Badge variant="outline" className={SCORE_CLASS[f.score] ?? ""}>{String(f.score).replace("_", " ")}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-sm text-xs text-muted-foreground">
+                          <span className="line-clamp-2" title={f.reason ?? ""}>{f.reason ?? "-"}</span>
                         </TableCell>
                       </TableRow>
                     ))}

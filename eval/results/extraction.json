@@ -83,7 +83,7 @@
           "score": "partial",
           "citations": 2,
           "counted": true,
-          "reason": "judge: The extracted value captures the absence of a fixed date and quotes starting in September 2024, but omits that the delivery schedule is set with Educational Technology."
+          "reason": "judge: The extracted value captures that there is no fixed delivery date and that quotes begin in September 2024, but it omits the key point that the delivery schedule is set with Educational Technology."
         },
         {
           "field": "Payment Terms",
@@ -173,7 +173,7 @@
           "score": "partial",
           "citations": 48,
           "counted": false,
-          "reason": "judge: The summary captures the main procurement, deadline, submission, term, deployment, and delivery facts but omits several gold details, including cooperative riders, product quantities and specifications, references, catalog pricing, and contact information."
+          "reason": "judge: The extracted value matches most of the gold summary, including the bid number/title, deadline change, submission method, term, pre-bid meeting, documentation, deployment, and delivery timing, but it omits or alters some gold details such as the exact company name context and several specific product/specification and contact/cooperative details."
         },
         {
           "field": "Product Specification",
@@ -201,7 +201,7 @@
           "gold": "PORFP #E20P4600040; eMMA BPM044557",
           "output": "#E20P4600040; BPM044557; 00004079359",
           "score": "exact",
-          "citations": 2,
+          "citations": 3,
           "counted": true,
           "reason": "all tokens present"
         },
@@ -226,7 +226,7 @@
         {
           "field": "Bid Submission Type",
           "gold": "Electronic only via eMMA; no email, fax, mail or hand delivery",
-          "output": "Submit through the State's eMaryland Marketplace Advantage (eMMA) e-Procurement system. Email, fax, U.S. Mail, and hand delivery are not accepted.",
+          "output": "Submit through the State's eMaryland Marketplace Advantage (eMMA) e-Procurement system; email, fax, U.S. Mail, and hand delivery are not accepted.",
           "score": "exact",
           "citations": 1,
           "counted": true,
@@ -253,7 +253,7 @@
         {
           "field": "Installation",
           "gold": "",
-          "output": "The Dell configuration lists factory installation, a Custom Asset Report, and a Consigned Asset Tag. No deployment or imaging details are stated.",
+          "output": "Factory installation is listed, along with a Custom Asset Report and Consigned Asset Tag.",
           "score": "wrong",
           "citations": 1,
           "counted": true,
@@ -271,16 +271,16 @@
         {
           "field": "Delivery Date",
           "gold": "Within 45 days of award, to 80 Calvert St, Annapolis",
-          "output": "Within 45 days of Award; delivery address: 80 Calvert Street, Room 109, Annapolis, MD 21401.",
+          "output": "Delivery within 45 days of Award; delivery address: 80 Calvert Street, Room 109, Annapolis, MD 21401.",
           "score": "exact",
-          "citations": 1,
+          "citations": 2,
           "counted": true,
           "reason": "all tokens present"
         },
         {
           "field": "Payment Terms",
           "gold": "No Net terms stated; invoice within 10 days of delivery with PORFP number and proof of delivery",
-          "output": "Email invoices to STOaccountspayable@treasurer.state.md.us within 10 days of delivering the equipment. Include contractor name, mailing address, social security number or Federal Tax ID number, phone number, the State's assigned PORFP number, date, invoice number, amount due, and proof of delivery including packing slip or delivery confirmation and equipment serial numbers.",
+          "output": "Email invoices to STOaccountspayable@treasurer.state.md.us. Submit invoices within 10 days of delivery, including contractor name, mailing address, social security number or Federal Tax ID number, phone number, the State-assigned PORFP number, date, invoice number, amount due, and proof of delivery (packing slip or delivery confirmation) and equipment serial numbers. No Net payment term is stated.",
           "score": "exact",
           "citations": 1,
           "counted": true,
@@ -289,16 +289,16 @@
         {
           "field": "Any Additional Documentation Required",
           "gold": "Contract Affidavit, Mercury Affidavit, warranty certificate on award, Dell letter of authorization on request, ENERGY STAR products",
-          "output": "Mercury Affidavit.; Letter of Authorization (LOA) from the Manufacturer or Distributor, if requested by the State.; Warranty certificate or Affidavit to be presented upon award.",
+          "output": "Mercury Affidavit; Letter of Authorization (LOA) from the Manufacturer or Distributor, if requested by the State; Warranty certificate or Affidavit upon award",
           "score": "partial",
-          "citations": 2,
+          "citations": 3,
           "counted": true,
           "reason": "missing tokens: ['Contract Affidavit']"
         },
         {
           "field": "MFG for Registration",
           "gold": "Dell (authorized reseller)",
-          "output": "Dell \u2014 the Master Contractor must be an authorized reseller; the State reserves the right to request a Letter of Authorization from the Manufacturer or Distributor.",
+          "output": "Dell \u2014 the Master Contractor must be an authorized reseller; the State may request a Letter of Authorization from the Manufacturer or Distributor.",
           "score": "exact",
           "citations": 1,
           "counted": true,
@@ -316,36 +316,36 @@
         {
           "field": "Model_no",
           "gold": "Dell Latitude 5550; WD22TB4",
-          "output": "SI# CC7802; WD22TB4",
+          "output": "CC7802; WD22TB4",
           "score": "partial",
-          "citations": 1,
+          "citations": 2,
           "counted": true,
           "reason": "missing tokens: ['5550']"
         },
         {
           "field": "Part_no",
           "gold": "SI# CC7802; WD22TB4; 210-BLYZ",
-          "output": "210-BLYZ",
-          "score": "partial",
-          "citations": 1,
+          "output": "210-BLYZ; CC7802; WD22TB4",
+          "score": "exact",
+          "citations": 3,
           "counted": true,
-          "reason": "missing tokens: ['CC7802', 'WD22TB4']"
+          "reason": "all tokens present"
         },
         {
           "field": "Product",
           "gold": "30 Dell Latitude 5550 laptops, 30 WD22TB4 docking stations, 3-year extended warranty",
-          "output": "30 \u00d7 Dell Latitude 5550 (SI# CC7802); 30 \u00d7 Dell Thunderbolt 4 Dock \u2013 WD22TB4",
+          "output": "Dell Latitude 5550 (SI# CC7802) \u2014 30; Dell Thunderbolt 4 Dock (WD22TB4) \u2014 30",
           "score": "exact",
-          "citations": 1,
+          "citations": 2,
           "counted": true,
           "reason": "all tokens present"
         },
         {
           "field": "contact_info",
           "gold": "Tamaira Hawkins, 410-260-7533, thawkins@treasurer.state.md.us",
-          "output": "Tamaira Hawkins \u2014 410-260-7533 \u2014 Thawkins@treasurer.state.md.us; James Simpson \u2014 410-260-6063 \u2014 jsimpson@treasurer.state. md.us",
+          "output": "Tamaira Hawkins \u2014 410-260-7533 \u2014 thawkins@treasurer.state.md.us; James Simpson \u2014 410-260-6063 \u2014 jsimpson@treasurer.state. md.us",
           "score": "exact",
-          "citations": 2,
+          "citations": 4,
           "counted": true,
           "reason": "all tokens present"
         },
@@ -361,27 +361,27 @@
         {
           "field": "Bid Summary",
           "gold": "",
-          "output": "The State of Maryland Treasurer\u2019s Office is procuring 30 Dell Latitude 5550 laptops and 30 Dell Thunderbolt 4 docks under the Desktop, Laptop and Tablet 2015 Master Contract. Bids are due June 10, 2024, at 2:00 PM EDT and must be submitted through eMaryland Marketplace Advantage (eMMA); email, fax, mail, and hand delivery are not accepted. Quotes must remain valid for at least 90 days after the due date, and the equipment must be delivered within 45 days of award to 80 Calvert Street, Room 109, Annapolis, MD 21401. The bid requires a Mercury Affidavit, a warranty certificate or affidavit upon award, and a three-year Dell Limited Hardware Warranty following delivery; the Master Contractor must be an authorized Dell reseller and provide a manufacturer or distributor Letter of Authorization if requested. No pre-bid meeting, addenda changes, or contract duration are stated in the validated information.",
+          "output": "The State of Maryland Treasurer\u2019s Office is procuring Dell Laptops w/Extended Warranty under Bid #E20P4600040; BPM044557; 00004079359, including Dell Latitude 5550 (SI# CC7802) and Dell Thunderbolt 4 Dock (WD22TB4), with quantities of 30 each. The bid is due on 06/10/2024 at 02:00 PM EDT, and proposals/quotes must remain valid for at least 90 days after the due date; no pre-bid meeting is stated in the evidence. Submissions must be made through the State\u2019s eMaryland Marketplace Advantage (eMMA) e-Procurement system, and email, fax, U.S. Mail, and hand delivery are not accepted. Notable requirements include factory installation, a Custom Asset Report, a Consigned Asset Tag, a Mercury Affidavit, and a Warranty certificate or Affidavit upon award; the State may also request a Letter of Authorization from the Manufacturer or Distributor, and the Master Contractor must be an authorized Dell reseller. Delivery is required within 45 days of award to 80 Calvert Street, Room 109, Annapolis, MD 21401, and invoices must be emailed to STOaccountspayable@treasurer.state.md.us within 10 days of delivery with the listed supporting details; no Net payment term, contract duration, or renewal option is stated.",
           "score": "partial",
-          "citations": 24,
+          "citations": 26,
           "counted": false,
-          "reason": "judge: The summary captures the products, deadline, submission method, validity period, and delivery requirements, but omits the bid identifiers, fixed-price purchase-order term, payment terms, Contract Affidavit, ENERGY STAR requirement, and key product specifications."
+          "reason": "judge: The extracted value matches many core bid-summary facts from the gold (title, bid numbers, due date, electronic submission, 90-day validity, no pre-bid meeting, delivery timing/location, and several documentation requirements), but it omits or alters some gold details such as the exact product specification, payment terms wording, and some listed items like ENERGY STAR products and the full contract/cooperative context."
         },
         {
           "field": "Product Specification",
           "gold": "Intel Core Ultra 5 125U, 16 GB DDR5, 256 GB NVMe SSD, 15.6\" FHD non-touch display, Wi-Fi 6E, Windows 11 Pro, Copilot ready",
-          "output": "Dell Latitude 5550: Intel Core Ultra 5 125U processor (12 MB cache, 12 cores, 14 threads, up to 4.3 GHz Turbo); 16 GB (2 x 8 GB) DDR5 memory; 256 GB M.2 2230 TLC Gen 4 PCIe NVMe SSD; 15.6-inch FHD (1920x1080), 60Hz, IPS, non-touch display; Intel Wi-Fi 6E AX211, 2x2, 802.11ax, Bluetooth 5.3; Windows 11 Pro. Laptops must be Microsoft Copilot ready. Dell Limited Hardware Warranty extended for all machines purchased\u20143 years following delivery. Dock specifications are not provided.",
+          "output": "CPU: Intel Core Ultra 5 125U processor (12 MB cache, 12 cores, 14 threads, up to 4.3 GHz Turbo).; RAM: 16 GB (2 x 8 GB), DDR5, 5600 MT/s (5200 MT/s with 13th Gen Intel Core processors).; Storage: 256 GB, M.2 2230, TLC, Gen 4 PCIe NVMe, SSD.; Display: 15.6\", FHD 1920x1080, 60Hz, IPS, Non-Touch, AG, 250 nit, 45% NTSC.; Wireless: Intel Wi-Fi 6E (6 where 6E unavailable) AX211, 2x2, 802.11ax; Bluetooth 5.3 wireless card.; OS: Windows 11 Pro.; Warranty: Dell Limited Hardware Warranty Extended for all machines purchased - 3 Years; 3 years following the date of delivery.; Laptops must be Microsoft Copilot ready.",
           "score": "exact",
-          "citations": 5,
+          "citations": 8,
           "counted": true,
           "reason": "all tokens present"
         }
       ],
-      "exact": 15,
-      "partial": 3,
+      "exact": 16,
+      "partial": 2,
       "wrong": 1,
       "scored_fields": 19,
-      "accuracy": 0.868,
+      "accuracy": 0.895,
       "fields_with_citations": 18,
       "values_without_citation": 0
     }
