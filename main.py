@@ -52,7 +52,12 @@ def default(
     if bid is None:
         console.print(ctx.get_help())
         raise typer.Exit(code=0)
-    _not_ready("--bid --ask" if ask else "--bid", "Phase 6a/6b")
+    folder = _bid_folder(bid)
+    if ask:
+        _ensure_indexed(folder)
+        _answer(ask, [folder.name])
+    else:
+        _extract_with_graph(folder)
 
 
 def _bid_folder(bid: str) -> Path:
@@ -103,13 +108,12 @@ def index(
     force: bool = typer.Option(False, "--force", help="Re-index even if unchanged"),
 ) -> None:
     """Index a bid folder into the hybrid search engine (incremental)."""
-    from rfp_intel.search.engine import SearchEngine
+    from rfp_intel.agents.runtime import close_engine, get_engine
 
-    engine = SearchEngine()
     try:
-        stats = engine.index_bid(_bid_folder(bid), force=force)
+        stats = get_engine().index_bid(_bid_folder(bid), force=force)
     finally:
-        engine.close()
+        close_engine()
     state = "unchanged, skipped" if stats.skipped else "indexed"
     console.print(
         f"[bold]{stats.bid_id}[/bold]: {state} | documents={stats.documents} "
@@ -129,8 +133,8 @@ def search(
     config: Optional[str] = typer.Option(None, "--config", help="vector | hybrid | hybrid_rerank"),
 ) -> None:
     """Search indexed bids and print ranked hits with citations."""
+    from rfp_intel.agents.runtime import close_engine, get_engine
     from rfp_intel.schemas import DocType, SearchFilters
-    from rfp_intel.search.engine import SearchEngine
 
     try:
         doc_types = [DocType(doc_type)] if doc_type else None
@@ -140,11 +144,10 @@ def search(
         raise typer.Exit(code=2) from exc
     filters = SearchFilters(bid_id=Path(bid).name if bid else None, doc_types=doc_types,
                             addendum_number=addendum)
-    engine = SearchEngine()
     try:
-        hits = engine.search(query, filters, top_k=top_k, config=config)
+        hits = get_engine().search(query, filters, top_k=top_k, config=config)
     finally:
-        engine.close()
+        close_engine()
 
     table = Table(title=f"{query!r} ({config or 'default'})", show_lines=True)
     for column in ("rank", "score", "file", "page", "doc_type", "ranks", "text"):
@@ -158,10 +161,93 @@ def search(
     console.print(table if hits else "[yellow]No results.[/yellow]")
 
 
+def _ensure_indexed(folder: Path) -> None:
+    """Index a bid folder with the shared engine (no-op when unchanged)."""
+    from rfp_intel.agents.runtime import get_engine
+
+    stats = get_engine().index_bid(folder)
+    console.print(f"[bold]{stats.bid_id}[/bold]: {'index unchanged' if stats.skipped else 'indexed'} "
+                  f"({stats.chunks_total} chunks)")
+
+
+def _extract_with_graph(folder: Path) -> None:
+    """Index, run the multi-agent extraction graph and print the results table."""
+    from rfp_intel.agents.graph import run_extraction
+    from rfp_intel.agents.runtime import close_engine
+    from rfp_intel.logging_utils import trace_path
+
+    try:
+        _ensure_indexed(folder)
+        state = run_extraction(folder.name)
+    finally:
+        close_engine()
+    record = state["record"]
+    _print_record(record)
+    steps = state.get("usage", [])
+    cost = sum(s.cost_usd for s in steps)
+    tokens = sum(s.tokens_in + s.tokens_out for s in steps)
+    console.print(f"steps={len(steps)} tokens={tokens} cost=${cost:.4f} trace={trace_path(record.run_id)}")
+    for error in state.get("errors", []):
+        console.print(f"  [yellow]{error}[/yellow]")
+
+
+def _answer(question: str, bids: list[str] | None) -> None:
+    """Run the Q&A graph and print the answer with its citations."""
+    from rfp_intel.agents.graph import run_question
+    from rfp_intel.agents.runtime import close_engine, get_engine
+
+    try:
+        bid_ids = bids or get_engine().known_bids()
+        state = run_question(question, bid_ids)
+    finally:
+        close_engine()
+    answer = state["answer"]
+    console.print(f"[bold]Q:[/bold] {answer.question}")
+    console.print(f"[bold]A:[/bold] {answer.answer}")
+    console.print(f"confidence={answer.confidence:.2f} bids={', '.join(answer.bids)}")
+    for n, c in enumerate(answer.citations, start=1):
+        console.print(f"  [{n}] {c.file} p.{c.page}: {c.quote[:160]!r}")
+    for error in state.get("errors", []):
+        console.print(f"  [yellow]{error}[/yellow]")
+
+
+def _print_record(record) -> None:
+    """The results table for a BidRecord."""
+    from rfp_intel.agents.baseline import value_text
+
+    table = Table(title=f"{record.bid_id} -> outputs/{record.bid_id}.json (run {record.run_id})")
+    for column in ("field", "status", "confidence", "value", "#citations"):
+        table.add_column(column)
+    for name, field in record.fields.items():
+        text = value_text(field.value).replace("\n", " ")
+        table.add_row(name, field.status, f"{field.confidence:.2f}",
+                      text if len(text) <= 70 else text[:67] + "...", str(len(field.sources)))
+    console.print(table)
+    console.print(f"validation: {record.validation}")
+    for change in record.addendum_changes:
+        console.print(f"  addendum change: {change.field} ({change.kind}, Addendum {change.addendum_number}): "
+                      f"{change.old_value or 'not stated'} -> {change.new_value}")
+
+
 @app.command()
-def extract(bid: str = typer.Option(..., "--bid", help="Bid folder or id")) -> None:
-    """Run the extraction graph and write outputs/<bid>.json."""
-    _not_ready("extract", "Phase 6a")
+def extract(
+    bid: str = typer.Option(..., "--bid", help="Bid folder or id"),
+    baseline: bool = typer.Option(False, "--baseline", help="Run the single-pass baseline extractor instead"),
+) -> None:
+    """Index the bid, run the extraction graph (or the baseline) and write outputs/<bid>.json."""
+    folder = _bid_folder(bid)
+    if not baseline:
+        _extract_with_graph(folder)
+        return
+    from rfp_intel.agents.baseline import run_baseline
+    from rfp_intel.agents.runtime import close_engine, get_engine
+
+    try:
+        _ensure_indexed(folder)
+        record = run_baseline(folder.name, get_engine())
+    finally:
+        close_engine()
+    _print_record(record)
 
 
 @app.command(name="ask")
@@ -169,14 +255,14 @@ def ask_command(
     question: str = typer.Argument(..., help="Question to answer"),
     bid: Optional[list[str]] = typer.Option(None, "--bid", help="Bid id(s) to scope the question"),
 ) -> None:
-    """Answer a free-form question with citations."""
-    _not_ready("ask", "Phase 6b")
+    """Answer a free-form question with citations (all indexed bids unless --bid is given)."""
+    _answer(question, [Path(b).name for b in bid] if bid else None)
 
 
 @app.command()
-def run(bid: str = typer.Option(..., "--bid", help="Bid folder")) -> None:
-    """Index (if needed) and extract one bid end to end."""
-    _not_ready("run", "Phase 6a")
+def run(bid: str = typer.Option(..., "--bid", help="Bid folder or id")) -> None:
+    """Index (if needed) and extract one bid end to end (same as the default --bid)."""
+    _extract_with_graph(_bid_folder(bid))
 
 
 @app.command()
@@ -191,13 +277,40 @@ def compare(
 @eval_app.command("retrieval")
 def eval_retrieval() -> None:
     """Recall@k and MRR for each retrieval config -> eval/results/retrieval.md."""
-    _not_ready("eval retrieval", "Phase 4")
+    from eval.run_retrieval_eval import RESULTS_DIR, run_retrieval_eval
+
+    report = run_retrieval_eval()
+    metrics = list(next(iter(report["summary"].values())))
+    table = Table(title=f"Retrieval evaluation ({len(report['questions'])} questions, top_k={report['top_k']})")
+    for column in ["config", *metrics]:
+        table.add_column(column)
+    for config, values in report["summary"].items():
+        table.add_row(config, *[f"{values[m]:.3f}" for m in metrics])
+    console.print(table)
+    misses = [(q["id"], c) for q in report["questions"] for c, r in q["ranks"].items() if r is None]
+    if misses:
+        console.print("misses (question/config): " + ", ".join(f"{q}/{c}" for q, c in misses))
+    console.print(f"wrote {RESULTS_DIR / 'retrieval.md'} and retrieval.json")
 
 
 @eval_app.command("extraction")
-def eval_extraction() -> None:
+def eval_extraction(
+    bid: Optional[list[str]] = typer.Option(None, "--bid", help="Bid id(s); default: all with gold"),
+    no_judge: bool = typer.Option(False, "--no-judge", help="Skip the LLM judge"),
+) -> None:
     """Field accuracy against gold answers -> eval/results/extraction.md."""
-    _not_ready("eval extraction", "Phase 5")
+    from eval.run_extraction_eval import RESULTS_DIR, run_extraction_eval
+
+    payload = run_extraction_eval(bid or None, judge=not no_judge)
+    table = Table(title="Extraction accuracy (accuracy = (exact + 0.5*partial) / fields)")
+    for column in ("bid", "fields", "exact", "partial", "wrong", "accuracy", "with citations"):
+        table.add_column(column)
+    for result in payload["bids"]:
+        table.add_row(result["bid_id"], str(result["scored_fields"]), str(result["exact"]),
+                      str(result["partial"]), str(result["wrong"]), f"{result['accuracy']:.3f}",
+                      str(result["fields_with_citations"]))
+    console.print(table)
+    console.print(f"wrote {RESULTS_DIR / 'extraction.md'} and extraction.json")
 
 
 if __name__ == "__main__":

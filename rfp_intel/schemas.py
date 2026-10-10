@@ -149,6 +149,62 @@ class FieldExtraction(BaseModel):        # LLM output per field
     notes: str = ""
 
 
+class FieldExtractions(BaseModel):
+    """LLM output of one extractor call: one FieldExtraction per requested field."""
+
+    items: list[FieldExtraction]
+
+
+class QAPlan(BaseModel):                 # LLM output of the Orchestrator in question mode
+    """How a question should be answered."""
+
+    question_type: Literal["single", "comparison", "changes"]
+    bids: list[str] = []
+    doc_types: list[DocType] = []
+    queries: list[str]
+
+
+class ReconcileDecision(BaseModel):      # LLM output of the Addendum Reconciler, per field
+    """Whether addendum evidence changes a field."""
+
+    field: str
+    kind: Literal["override", "clarification", "addition", "none"]
+    new_value: str | None
+    old_value: str | None                # the value before the addendum, when the evidence or notes state it
+    evidence_id: str | None
+    quote: str | None
+    reason: str = ""
+
+
+class ReconcileDecisions(BaseModel):
+    """One decision per field that had addendum evidence."""
+
+    items: list[ReconcileDecision]
+
+
+class SupportCheck(BaseModel):           # LLM output of the Validator, per field
+    """Is the value fully supported by its cited evidence?"""
+
+    field: str
+    supported: bool
+    reason: str = ""
+
+
+class SupportChecks(BaseModel):
+    """Support verdicts for a group of fields."""
+
+    items: list[SupportCheck]
+
+
+class AnswerDraft(BaseModel):            # LLM output of the Q&A agent
+    """A cited answer before citations are resolved."""
+
+    answer: str
+    found: bool
+    evidence_ids: list[str]
+    quotes: list[str]
+
+
 class FieldValue(BaseModel):
     """Final value of one field in the deliverable JSON."""
 
@@ -238,6 +294,40 @@ class RunStatus(BaseModel):
     bid_id: str
     status: Literal["running", "done", "failed"]
     steps: list[StepLog]
+
+
+class BidSummary(BaseModel):            # GET /bids row (Phase 7a)
+    """One row of the bid list: folder facts plus headline values of the saved record."""
+
+    bid_id: str
+    title: str | None = None
+    agency: str | None = None
+    due_date: str | None = None
+    due_date_changed_by: int | None = None   # addendum number that overrode "Due Date"
+    doc_count: int = 0
+    indexed: bool = False
+    last_run: str | None = None              # generated_at of the saved record
+    validation: dict[str, int] | None = None
+
+
+class DocumentInfo(BaseModel):
+    """Per-file facts shown on the bid detail page."""
+
+    file_name: str
+    doc_type: DocType
+    addendum_number: int | None = None
+    pages: int
+    tables: int = 0
+    warnings: list[str] = []
+
+
+class BidDetail(BaseModel):              # GET /bids/{bid_id}
+    """Documents of one bid plus its index state."""
+
+    bid_id: str
+    documents: list[DocumentInfo]
+    indexed: bool
+    chunks: int
 
 
 class Usage(BaseModel):
