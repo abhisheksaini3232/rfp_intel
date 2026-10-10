@@ -266,6 +266,7 @@ recorded the fixture's addendum due-date override (`outputs/MiniBid.json`).
 - Q&A log (12 cited answers, including the brief's five): [eval/qa_log.md](eval/qa_log.md)
 - Example agent trace (Bid1, 25 steps incl. parallel extractors and two validator retries): [logs/example_trace.jsonl](logs/example_trace.jsonl)
 - Requirements checklist: [docs/CHECKLIST.md](docs/CHECKLIST.md)
+- Demo video script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 
 ## Deliverables
 
