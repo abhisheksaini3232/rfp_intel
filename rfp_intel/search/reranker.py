@@ -1,1 +1,29 @@
-"""Cross-encoder re-ranking of fused candidates (Phase 3)."""
+"""Cross-encoder re-ranking."""
+
+from __future__ import annotations
+
+from functools import cached_property
+
+from rfp_intel.config import settings
+from rfp_intel.search.embedder import load_cached
+
+
+class Reranker:
+    """Scores (query, passage) pairs with a cross-encoder (loaded on first use)."""
+
+    def __init__(self, model_name: str | None = None) -> None:
+        self.model_name = model_name or settings.reranker.model
+
+    @cached_property
+    def _model(self):  # noqa: ANN202 - CrossEncoder, imported lazily (slow import)
+        """The cross-encoder model."""
+        from sentence_transformers import CrossEncoder
+
+        return load_cached(CrossEncoder, self.model_name)
+
+    def score(self, query: str, passages: list[str]) -> list[float]:
+        """Relevance score per passage (higher is better)."""
+        if not passages:
+            return []
+        scores = self._model.predict([(query, p) for p in passages], show_progress_bar=False)
+        return [float(s) for s in scores]

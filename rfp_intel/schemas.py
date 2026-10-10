@@ -83,6 +83,18 @@ class SearchFilters(BaseModel):
     addendum_number: int | None = None
 
 
+class IndexStats(BaseModel):
+    """Result of indexing one bid folder (used by the plan but not defined there)."""
+
+    bid_id: str
+    documents: int
+    chunks_added: int
+    chunks_total: int
+    skipped: bool = False                # True when the bid was unchanged since last index
+    warnings: list[str] = []
+    seconds: float = 0.0
+
+
 class SearchHit(BaseModel):
     """One search result with its final score and per-retriever ranks."""
 

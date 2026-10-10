@@ -20,6 +20,8 @@ from rich.table import Table
 from rfp_intel.config import settings
 
 logging.basicConfig(level=logging.WARNING, format="%(message)s", handlers=[RichHandler(show_path=False)])
+for _noisy in ("sentence_transformers", "transformers", "huggingface_hub", "httpx"):
+    logging.getLogger(_noisy).setLevel(logging.ERROR)
 
 app = typer.Typer(
     help="RFP Intelligence Platform: parse, index, search, extract and ask over bid folders.",
@@ -97,11 +99,24 @@ def parse(bid: str = typer.Option(..., "--bid", help="Bid folder or id")) -> Non
 
 @app.command()
 def index(
-    bid: str = typer.Option(..., "--bid", help="Bid folder"),
+    bid: str = typer.Option(..., "--bid", help="Bid folder or id"),
     force: bool = typer.Option(False, "--force", help="Re-index even if unchanged"),
 ) -> None:
     """Index a bid folder into the hybrid search engine (incremental)."""
-    _not_ready("index", "Phase 3")
+    from rfp_intel.search.engine import SearchEngine
+
+    engine = SearchEngine()
+    try:
+        stats = engine.index_bid(_bid_folder(bid), force=force)
+    finally:
+        engine.close()
+    state = "unchanged, skipped" if stats.skipped else "indexed"
+    console.print(
+        f"[bold]{stats.bid_id}[/bold]: {state} | documents={stats.documents} "
+        f"chunks_added={stats.chunks_added} chunks_total={stats.chunks_total} ({stats.seconds}s)"
+    )
+    for warning in stats.warnings:
+        console.print(f"  [yellow]warning:[/yellow] {warning}")
 
 
 @app.command()
@@ -114,7 +129,33 @@ def search(
     config: Optional[str] = typer.Option(None, "--config", help="vector | hybrid | hybrid_rerank"),
 ) -> None:
     """Search indexed bids and print ranked hits with citations."""
-    _not_ready("search", "Phase 3")
+    from rfp_intel.schemas import DocType, SearchFilters
+    from rfp_intel.search.engine import SearchEngine
+
+    try:
+        doc_types = [DocType(doc_type)] if doc_type else None
+        settings.retrieval_for(config)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    filters = SearchFilters(bid_id=Path(bid).name if bid else None, doc_types=doc_types,
+                            addendum_number=addendum)
+    engine = SearchEngine()
+    try:
+        hits = engine.search(query, filters, top_k=top_k, config=config)
+    finally:
+        engine.close()
+
+    table = Table(title=f"{query!r} ({config or 'default'})", show_lines=True)
+    for column in ("rank", "score", "file", "page", "doc_type", "ranks", "text"):
+        table.add_column(column)
+    for rank, hit in enumerate(hits, start=1):
+        c = hit.chunk
+        kind = c.doc_type.value + (f" {c.addendum_number}" if c.addendum_number else "")
+        table.add_row(str(rank), f"{hit.score:.3f}", c.file_name, str(c.page), kind,
+                      " ".join(f"{k}={v}" for k, v in hit.ranks.items()),
+                      c.text[:200].replace("\n", " "))
+    console.print(table if hits else "[yellow]No results.[/yellow]")
 
 
 @app.command()

@@ -131,3 +131,45 @@ Each entry: decision, reason, phase it was made in.
     continue across a page break (Tier 3 runs from page 4 to 5); the Phase 3
     chunker must handle that. The portal shows Closing Date 03:00 PM EDT,
     which equals Addendum 2's 2:00 PM Central.
+
+## Phase 3
+
+33. **Chunking runs over each whole document**, not page by page, so Q&A
+    pairs and spec lists that cross a page break stay whole; `page` is the
+    page a chunk starts on (a cited quote may continue on the next page).
+34. **Running headings inside a spec list** (heading lines at the top of a
+    page followed by more bullets) are skipped, so the list continues.
+35. **Q&A units** end at the next question number (n + 1) or a paragraph
+    break after "Answer:"; page breaks do not end a unit, and a list that
+    restarts at "1." inside an answer belongs to the answer.
+36. **Only real tables become table chunks** (>= 50% of rows with 2+
+    non-empty cells); layout grids are skipped because their text is already
+    in the page text. Table/text duplication is accepted.
+37. **min_tokens applies to every kind except qa and record** (plan rule);
+    a heading only starts a new text chunk once the current one has
+    min_tokens; a tiny tail joins the previous chunk; exact duplicate chunks
+    within a document are dropped (20 empty response-form tables in Bid1).
+38. **Uppercase heading rule** also needs letters to be >= 50% of visible
+    characters, so date lines such as "06/01/2024 at 2:00 PM EDT" are not
+    headings. Numbered bullets need whitespace after "1." / "a)" so "2.1 Line
+    Information" is a heading, not a bullet.
+39. **BM25 tokenizer** keeps IDs whole and also emits their parts
+    ("ja-207652" + "ja" + "207652"); a trailing "#" is kept ("si#"). BM25
+    returns chunks containing a query token ranked by score (not score > 0:
+    small corpora give IDF 0 to terms in half the chunks). Multi-bid search
+    builds one BM25 over the selected bids at query time.
+40. **Doc-type filters from query text need scoping words** ("only search
+    ... specs", "in the addendum", "from the RFP", "specs only"); a bare
+    mention is a topic. Bid ids and "addendum N" always filter.
+    `parse_filters` returns `(filters, cleaned_query)`. Explicit filters win.
+41. **Query expansion** returns the query plus up to 3 synonym variants; each
+    variant runs through vector and BM25 search and all lists are fused with
+    RRF. No LLM rewriting (deterministic, free); widened retries in Phase 6.
+42. **Vector point ids and fusion keys include the bid id**
+    (`<bid>/<chunk_id>`): the plan's chunk_id comes from the file hash, and
+    the same file in two bids would otherwise overwrite each other.
+43. **`IndexStats`** (used but not defined by the plan) added to schemas.py.
+    The manifest stores file hashes plus a hash of the chunking settings and
+    embedding model, so changing those re-indexes automatically.
+44. **Models load from the local Hugging Face cache first** and download only
+    when missing (no network check on every run).
