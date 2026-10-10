@@ -8,10 +8,18 @@
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.logging import RichHandler
+from rich.table import Table
+
+from rfp_intel.config import settings
+
+logging.basicConfig(level=logging.WARNING, format="%(message)s", handlers=[RichHandler(show_path=False)])
 
 app = typer.Typer(
     help="RFP Intelligence Platform: parse, index, search, extract and ask over bid folders.",
@@ -45,10 +53,46 @@ def default(
     _not_ready("--bid --ask" if ask else "--bid", "Phase 6a/6b")
 
 
+def _bid_folder(bid: str) -> Path:
+    """Resolve --bid: an existing folder path, or a bid id under data_dir."""
+    path = Path(bid)
+    if path.is_dir():
+        return path
+    candidate = settings.path("data_dir") / bid
+    if candidate.is_dir():
+        return candidate
+    console.print(f"[red]Bid folder not found: {bid}[/red]")
+    raise typer.Exit(code=2)
+
+
 @app.command()
-def parse(bid: str = typer.Option(..., "--bid", help="Bid folder")) -> None:
+def parse(bid: str = typer.Option(..., "--bid", help="Bid folder or id")) -> None:
     """Parse a bid folder and write outputs/parsed/<bid>/<file>.json."""
-    _not_ready("parse", "Phase 2")
+    from rfp_intel.ingestion.loader import load_bid_folder
+
+    folder = _bid_folder(bid)
+    documents = load_bid_folder(folder)
+    out_dir = settings.path("outputs_dir") / "parsed" / folder.name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for doc in documents:
+        (out_dir / f"{doc.file_name}.json").write_text(doc.model_dump_json(indent=2), encoding="utf-8")
+
+    table = Table(title=f"Parsed {folder.name} -> {out_dir}")
+    for column in ("file", "doc_type", "addendum", "pages", "tables", "warnings"):
+        table.add_column(column)
+    for doc in documents:
+        table.add_row(
+            doc.file_name,
+            doc.doc_type.value,
+            str(doc.addendum_number or ""),
+            str(len(doc.pages)),
+            str(sum(len(page.tables) for page in doc.pages)),
+            "; ".join(doc.warnings),
+        )
+    parsed = {doc.file_name for doc in documents}
+    for path in sorted(p for p in folder.iterdir() if p.is_file() and p.name not in parsed):
+        table.add_row(path.name, "skipped", "", "", "", "unsupported type or duplicate")
+    console.print(table)
 
 
 @app.command()

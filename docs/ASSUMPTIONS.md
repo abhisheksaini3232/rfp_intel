@@ -88,3 +88,46 @@ Each entry: decision, reason, phase it was made in.
     Form 1295, in the Additional Documentation field) as an integer;
     `FieldSpec` converts every search hint to text instead of editing the
     plan's YAML.
+
+## Phase 2
+
+23. **PDF lines are rebuilt from spans** instead of plain
+    `get_text("text", sort=True)`. Sorted text glued side-by-side columns
+    together (`210-BLYZDell Latitude 5550`), which breaks BM25 on part
+    numbers. Spans are grouped into rows by vertical position and joined
+    with a space at visible horizontal gaps; a vertical gap larger than 0.8
+    line heights becomes a paragraph break.
+24. **Drop selectors spare containers of fields.** Portal pages wrap all
+    content in a `<form>`; an element from `html_drop_selectors` is removed
+    only if it contains none of the configured labels.
+25. **HTML label value** = text of the label element's following siblings,
+    stopping at the next sibling that holds another label (so "Contact
+    Information" does not swallow "Description"); else the next string.
+26. **Classification runs on the raw first page, before cleaning**, because
+    the cleaner removes repeated headers such as "ADDENDUM No. 1". The file
+    name is checked against all patterns first, then the first page text.
+27. **Repeated header/footer detection** treats digits as interchangeable
+    ("Page 3 of 40" = "Page 4 of 40"), needs >= 2 non-empty pages and >= 50%
+    of them, and ignores lines shorter than 4 characters or without letters
+    (so "Yes" or "50,000" are never removed). One-page documents are untouched.
+28. **Document date fallback skips deadlines.** When no "Issue Date"/"Date:"
+    is found, the first date in the first 500 chars is used unless the same
+    sentence has a deadline word just before it (due, deadline, closing,
+    extend..., no later than). Addendum 2 therefore has no doc_date rather
+    than the due date.
+29. **Title** = HTML `Title` field; for PDFs the metadata title (minus
+    "Microsoft Word - " and extensions), else the first line with >= 3 words
+    that is <= 20% digits (skips addresses and phone numbers).
+30. **Failure reporting.** A file that cannot be parsed (empty, corrupt,
+    password-protected) becomes a `Document` with no pages and a warning, so
+    it is visible downstream; unsupported extensions and duplicate files are
+    skipped and logged, and `parse` lists them as "skipped".
+31. **`parse_pdf` / `parse_html` take an optional `warnings` list** in
+    addition to the planned `(path)` argument, so non-fatal problems reach
+    `Document.warnings`.
+32. **Bid1 data notes.** The main RFP has 62 pages (the plan says 40; the
+    RFP body is 40 pages plus attachments). Pages 54-59 are blank with no
+    images, so they are flagged empty and OCR could not help. Spec lists can
+    continue across a page break (Tier 3 runs from page 4 to 5); the Phase 3
+    chunker must handle that. The portal shows Closing Date 03:00 PM EDT,
+    which equals Addendum 2's 2:00 PM Central.
