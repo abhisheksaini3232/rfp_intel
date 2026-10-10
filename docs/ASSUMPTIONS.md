@@ -58,6 +58,26 @@ Each entry: decision, reason, phase it was made in.
     `testpaths = tests` so `pytest -q` works from the root without installing
     the package.
 
+## Phase 1 (draft, pending approval)
+
+16. **Eval models live in `eval/loaders.py`** (`RetrievalQuestion`,
+    `GoldField`). They describe eval files, not messages between
+    `rfp_intel` modules, and `eval/` is outside the package.
+17. **Gold file shape.** `eval/gold/<bid>.json` maps each of the 20 field
+    names to `{value, must_contain, status?, scoring?, notes?}`.
+    `status` defaults to `ok`; `scoring: faithfulness` marks Bid Summary
+    (judged for faithfulness, not exactness).
+18. **Matching ignores case and all whitespace** (`normalize()` removes
+    whitespace), so "16 GB" matches "16GB". Retrieval relevance and gold
+    tokens use the same rule.
+19. **Bid2 Installation gold is `not_found`.** The plan says "Not required
+    (none stated)"; since nothing is stated in the documents, the
+    guardrail rule (missing info = not_found) applies.
+20. **`must_contain` tokens are short and as written in the source**, and
+    `eval/verify_eval_data.py` checks every token exists in the bid's files.
+    Date format differences (e.g. "July 9, 2024" vs "2024-07-09") are left to
+    the Phase 5 scorer and LLM judge.
+
 ## Plan corrections
 
 21. **`config/fields.yaml` YAML fix.** The `contact_info` description in
