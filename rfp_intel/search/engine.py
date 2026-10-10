@@ -60,10 +60,18 @@ class SearchEngine:
 
     @property
     def vectors(self) -> VectorStore:
-        """The Qdrant store (opened on first use; loads the embedder for its dimension)."""
+        """The Qdrant store, opened on first use.
+
+        The vector size is remembered in the manifest so that skipping an
+        unchanged bid does not load the embedding model just to open the store.
+        """
         if self._vectors is None:
-            self._vectors = VectorStore(self.storage_dir / "qdrant", settings.vector_store.collection,
-                                        self.embedder.dim)
+            manifest = self._read_manifest()
+            dim = manifest.get("_dim") or self.embedder.dim
+            self._vectors = VectorStore(self.storage_dir / "qdrant", settings.vector_store.collection, dim)
+            if manifest.get("_dim") != dim:
+                manifest["_dim"] = dim
+                self._write_manifest(manifest)
         return self._vectors
 
     def close(self) -> None:
@@ -76,7 +84,7 @@ class SearchEngine:
 
     def known_bids(self) -> list[str]:
         """Bids present in the manifest."""
-        return sorted(self._read_manifest())
+        return sorted(key for key in self._read_manifest() if not key.startswith("_"))
 
     def index_bid(self, folder: Path, force: bool = False) -> IndexStats:
         """Index a bid folder; unchanged bids are skipped, changed bids are rebuilt."""
