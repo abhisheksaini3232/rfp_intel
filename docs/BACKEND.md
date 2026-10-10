@@ -509,6 +509,7 @@ sequenceDiagram
 | `extract(bid_id)` -> BidRecord | `--bid`, `extract`, `run` | background worker |
 | `start_extraction(bid_id)` -> run_id | - | `POST /extract` (202 / 409) |
 | `run_status(run_id)` | - | `GET /runs/{id}` |
+| `list_runs()`, `active_run()` | - | `GET /runs` (newest first; the running one is what a 409 refers to) |
 | `ask(question, bid_ids)` -> Answer | `ask`, `--ask` | `POST /ask` |
 | `list_bids()`, `get_bid_detail()`, `get_record()` | - | `GET /bids`, `/bids/{id}`, `/bids/{id}/record` |
 | `get_chunk(chunk_id)` | - | `GET /chunks/{id}` |

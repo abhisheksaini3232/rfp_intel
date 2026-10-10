@@ -122,6 +122,13 @@ export interface RunStatus {
   steps: StepLog[];
 }
 
+/** One row of GET /runs: a run this API process started (no steps). */
+export interface RunInfo {
+  run_id: string;
+  bid_id: string;
+  status: RunState;
+}
+
 export interface IndexStats {
   bid_id: string;
   documents: number;

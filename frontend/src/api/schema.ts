@@ -128,6 +128,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs
+         * @description Runs started by this API process, newest first (the running one, if any, included).
+         */
+        get: operations["runs_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runs/{run_id}": {
         parameters: {
             query?: never;
@@ -563,6 +583,21 @@ export interface components {
             seconds: number;
         };
         /**
+         * RunInfo
+         * @description A background run known to this API process (no steps).
+         */
+        RunInfo: {
+            /** Run Id */
+            run_id: string;
+            /** Bid Id */
+            bid_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "done" | "failed";
+        };
+        /**
          * RunStarted
          * @description POST /extract response.
          */
@@ -873,6 +908,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    runs_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunInfo"][];
                 };
             };
         };

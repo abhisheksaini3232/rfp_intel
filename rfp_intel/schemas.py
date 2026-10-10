@@ -296,6 +296,14 @@ class RunStatus(BaseModel):
     steps: list[StepLog]
 
 
+class RunInfo(BaseModel):               # GET /runs row
+    """A background run known to this API process (no steps)."""
+
+    run_id: str
+    bid_id: str
+    status: Literal["running", "done", "failed"]
+
+
 class BidSummary(BaseModel):            # GET /bids row (Phase 7a)
     """One row of the bid list: folder facts plus headline values of the saved record."""
 

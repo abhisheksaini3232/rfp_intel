@@ -119,6 +119,32 @@ def test_second_concurrent_extract_is_409(client):
     assert resp.status_code == 409 and resp.json() == {"error": "an extraction is already running", "run_id": None}
 
 
+def test_409_names_the_running_bid_and_its_run_id(client):
+    """While a run is registered, the 409 says which bid holds the lock and returns its run_id."""
+    services._runs["active-1"] = {"bid_id": "Other", "status": "running", "error": None}
+    assert services._extract_lock.acquire(timeout=10)
+    try:
+        resp = client.post("/extract", json={"bid_id": BID})
+    finally:
+        services._extract_lock.release()
+    assert resp.status_code == 409
+    assert resp.json() == {"error": "an extraction is already running for bid 'Other' (run active-1)",
+                           "run_id": "active-1"}
+    assert services.active_run().run_id == "active-1"
+
+
+def test_list_runs_newest_first_with_status(client):
+    assert client.get("/runs").json() == []
+    started = client.post("/extract", json={"bid_id": BID}).json()["run_id"]
+    _wait_for_run(client, started)
+    services._runs["later"] = {"bid_id": "Other", "status": "running", "error": None}
+    rows = client.get("/runs").json()
+    assert [r["run_id"] for r in rows] == ["later", started]
+    assert rows[0] == {"run_id": "later", "bid_id": "Other", "status": "running"}
+    assert rows[1]["status"] == "done" and rows[1]["bid_id"] == BID
+    assert services.active_run().run_id == "later"
+
+
 def test_run_status_from_trace_only(client, workspace):
     from rfp_intel.logging_utils import write_step
     from rfp_intel.schemas import StepLog

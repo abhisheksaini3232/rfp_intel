@@ -444,3 +444,15 @@ Each entry: decision, reason, phase it was made in.
     key is now `bid_id:chunk_id`. The Playwright script lives outside the
     repo (it needs the live API and real LLM calls) and is not part of
     `npm test`.
+88. **One extraction at a time is visible everywhere.** The API runs one
+    extraction at a time (one Qdrant client, CPU-bound embedding). The web
+    app only knew about runs it had started itself, so after a reload, or
+    on another bid's page, "Run extraction" looked available and the 409
+    surfaced as "already running for this bid" even when a different bid
+    was running. Now `GET /runs` lists the runs of the API process (newest
+    first), the 409 body names the running bid and carries its `run_id`,
+    and the web app polls `/runs`: a running run for the open bid is
+    adopted (progress card without clicking), a run for another bid
+    disables the button as "Busy: extracting <bid>", and the toast shows
+    the server's message. Runs are kept in memory, so an API restart
+    forgets them; a trace file still answers `GET /runs/{id}`.

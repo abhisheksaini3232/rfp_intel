@@ -210,8 +210,9 @@ chunk; a value without a citation is marked failed; missing information is
 ### React stack
 
 Vite + React 18 + TypeScript (strict) with Tailwind and shadcn/ui for small
-typed components, TanStack Query for fetching/polling (`/runs/{id}` every
-1.5 s during an extraction), React Router, Recharts for the evaluation
+typed components, TanStack Query for fetching/polling (`/runs` and `/runs/{id}`
+every 1.5 s during an extraction, so a run started elsewhere or before a
+reload is picked up and other bids show "Busy"), React Router, Recharts for the evaluation
 charts, react-markdown for answers. Types are generated from the API's
 OpenAPI schema, so the UI cannot drift from the backend models.
 

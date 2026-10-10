@@ -68,7 +68,7 @@ export function BidDetailPage() {
 
   useEffect(() => {
     if (!run.startError) return;
-    toast.error(run.conflict ? "An extraction is already running for this bid." : run.startError.message);
+    toast.error(run.conflict ? `Busy: ${run.startError.message}.` : run.startError.message);
   }, [run.startError, run.conflict]);
 
   useEffect(() => {
@@ -103,9 +103,13 @@ export function BidDetailPage() {
             )}
           </div>
         </div>
-        <Button onClick={() => run.start()} disabled={run.starting || run.running}>
-          {run.starting || run.running ? <Loader2 className="animate-spin" /> : <Play />}
-          {run.running ? "Extracting..." : "Run extraction"}
+        <Button
+          onClick={() => run.start()}
+          disabled={run.starting || run.running || Boolean(run.busyWith)}
+          title={run.busyWith ? `An extraction is running for ${run.busyWith}; wait for it to finish.` : undefined}
+        >
+          {run.starting || run.running || run.busyWith ? <Loader2 className="animate-spin" /> : <Play />}
+          {run.running ? "Extracting..." : run.busyWith ? `Busy: extracting ${run.busyWith}` : "Run extraction"}
         </Button>
       </div>
 
@@ -146,12 +150,12 @@ export function BidDetailPage() {
         </TabsList>
 
         <TabsContent value="overview">
-          <RecordGate record={record} onRun={() => run.start()} running={run.running}>
+          <RecordGate record={record} onRun={() => run.start()} running={run.running || Boolean(run.busyWith)}>
             {(r) => <Overview record={r} />}
           </RecordGate>
         </TabsContent>
         <TabsContent value="fields">
-          <RecordGate record={record} onRun={() => run.start()} running={run.running}>
+          <RecordGate record={record} onRun={() => run.start()} running={run.running || Boolean(run.busyWith)}>
             {(r) => (
               <Card>
                 <CardContent className="p-0">
@@ -162,7 +166,7 @@ export function BidDetailPage() {
           </RecordGate>
         </TabsContent>
         <TabsContent value="changes">
-          <RecordGate record={record} onRun={() => run.start()} running={run.running}>
+          <RecordGate record={record} onRun={() => run.start()} running={run.running || Boolean(run.busyWith)}>
             {(r) => <AddendumTimeline bidId={bidId} changes={r.addendum_changes} />}
           </RecordGate>
         </TabsContent>

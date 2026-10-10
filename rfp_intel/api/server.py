@@ -21,7 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from rfp_intel import services
 from rfp_intel.agents.runtime import close_engine, get_engine
 from rfp_intel.config import settings
-from rfp_intel.schemas import Answer, BidDetail, BidRecord, BidSummary, Chunk, IndexStats, RunStatus, SearchHit
+from rfp_intel.schemas import Answer, BidDetail, BidRecord, BidSummary, Chunk, IndexStats, RunInfo, RunStatus, SearchHit
 
 _MEDIA_TYPES = {".pdf": "application/pdf", ".html": "text/html", ".htm": "text/html"}
 
@@ -169,8 +169,16 @@ def extract(body: ExtractRequest) -> RunStarted:
         return RunStarted(run_id=services.start_extraction(body.bid_id))
     except FileNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(409, str(exc)) from exc
+    except services.ExtractionBusy as exc:
+        # The body's run_id points at the run that holds the lock so a client can follow it.
+        active = exc.active.run_id if exc.active else None
+        return JSONResponse(status_code=409, content={"error": str(exc), "run_id": active})
+
+
+@app.get("/runs", response_model=list[RunInfo])
+def runs() -> list[RunInfo]:
+    """Runs started by this API process, newest first (the running one, if any, included)."""
+    return services.list_runs()
 
 
 @app.get("/runs/{run_id}", response_model=RunStatus)

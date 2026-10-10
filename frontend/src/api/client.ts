@@ -15,6 +15,7 @@ import type {
   Health,
   IndexStats,
   RetrievalEval,
+  RunInfo,
   RunStatus,
   SearchParams,
   SearchResponse,
@@ -108,6 +109,7 @@ export const api = {
   extract: (bidId: string) =>
     request<ExtractResponse>("/extract", jsonInit("POST", { bid_id: bidId })),
   getRun: (runId: string) => request<RunStatus>(`/runs/${encodeURIComponent(runId)}`),
+  listRuns: () => request<RunInfo[]>("/runs"),
   search: (params: SearchParams) =>
     request<SearchResponse>(`/search${toQuery({ ...params })}`),
   ask: (body: AskRequest) => request<Answer>("/ask", jsonInit("POST", body)),

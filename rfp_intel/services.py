@@ -30,6 +30,7 @@ from rfp_intel.schemas import (
     Document,
     DocumentInfo,
     IndexStats,
+    RunInfo,
     RunStatus,
     SearchFilters,
     SearchHit,
@@ -125,7 +126,7 @@ def start_extraction(bid_id: str) -> str:
     if not bid_folder(bid_id).is_dir():
         raise FileNotFoundError(f"bid folder not found: {bid_folder(bid_id)}")
     if not _extract_lock.acquire(blocking=False):
-        raise RuntimeError("an extraction is already running")
+        raise ExtractionBusy(active_run())
     run_id = new_run_id()
     with _runs_lock:
         _runs[run_id] = {"bid_id": bid_id, "status": "running", "error": None}
@@ -141,6 +142,28 @@ def start_extraction(bid_id: str) -> str:
 
     threading.Thread(target=worker, name=f"extract-{run_id}", daemon=True).start()
     return run_id
+
+
+class ExtractionBusy(RuntimeError):
+    """Raised by start_extraction while another run holds the extraction lock."""
+
+    def __init__(self, active: RunInfo | None) -> None:
+        self.active = active
+        detail = f" for bid {active.bid_id!r} (run {active.run_id})" if active else ""
+        super().__init__(f"an extraction is already running{detail}")
+
+
+def list_runs() -> list[RunInfo]:
+    """Runs started by this API process, newest first."""
+    with _runs_lock:
+        items = [RunInfo(run_id=rid, bid_id=str(e["bid_id"]), status=e["status"])  # type: ignore[arg-type]
+                 for rid, e in _runs.items()]
+    return list(reversed(items))
+
+
+def active_run() -> RunInfo | None:
+    """The run currently holding the extraction lock, if this process knows it."""
+    return next((r for r in list_runs() if r.status == "running"), None)
 
 
 def _set_run(run_id: str, status: str, error: str | None = None) -> None:
