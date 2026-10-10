@@ -14,10 +14,13 @@ no hits, never an error.
 
 from __future__ import annotations
 
+import re
+
 from rfp_intel.agents.runtime import get_engine
 from rfp_intel.config import FieldSpec, load_fields, settings
 from rfp_intel.logging_utils import log_step, record_tool_call
 from rfp_intel.schemas import (
+    BidRecord,
     DocType,
     EvidenceBundle,
     EvidenceRequest,
@@ -30,6 +33,9 @@ from rfp_intel.search.query import expand_query
 ADDENDUM_SUFFIX = "::addendum"
 QA_PREFIX = "qa::"
 ADDENDUM_TOP_K = 4
+MAX_CHANGE_QUERIES = 6
+MAX_QA_EVIDENCE = 20
+_ADDENDUM_WORD = re.compile(r"\baddend(?:um|a)\b|\bchange[sd]?\b|\brevis", re.IGNORECASE)
 MAX_QUERIES = 2                 # each search = embed + vector + BM25 + cross-encoder (~3-5 s on CPU)
 MAX_WIDENED_QUERIES = 5
 MAX_ADDENDUM_QUERIES = 1
@@ -62,10 +68,17 @@ def build_requests(task: Task, widened: bool, only_fields: list[str] | None) -> 
     """EvidenceRequests for a task: Q&A queries, or one per field (plus an addendum one)."""
     cfg = settings.agents
     if task.group == "qa":
-        return [EvidenceRequest(field_or_question=f"{QA_PREFIX}{bid}", queries=task.queries,
-                                filters=task.filters.model_copy(update={"bid_id": bid, "bid_ids": None}),
-                                top_k=cfg.widened_top_k if widened else cfg.evidence_top_k)
-                for bid in _bids(task.filters)]
+        top_k = cfg.widened_top_k if widened else cfg.evidence_top_k
+        requests = []
+        for bid in _bids(task.filters):
+            filters = task.filters.model_copy(update={"bid_id": bid, "bid_ids": None})
+            extra = change_log_queries(bid, task.queries)
+            queries = list(task.queries) + extra
+            # keep room for both sides of every change (merged hits are capped at top_k)
+            keep = min(MAX_QA_EVIDENCE, top_k + 2 * len(extra))
+            requests.append(EvidenceRequest(field_or_question=f"{QA_PREFIX}{bid}", queries=queries,
+                                            filters=filters, top_k=keep))
+        return requests
     specs = {f.name: f for f in load_fields()}
     requests: list[EvidenceRequest] = []
     for name in task.fields:
@@ -83,6 +96,30 @@ def build_requests(task: Task, widened: bool, only_fields: list[str] | None) -> 
                                         queries=field_queries(spec)[:MAX_ADDENDUM_QUERIES], filters=addendum_filters,
                                         top_k=ADDENDUM_TOP_K))
     return requests
+
+
+def change_log_queries(bid_id: str, queries: list[str]) -> list[str]:
+    """Extra queries for change questions, derived from the bid's saved change log.
+
+    When a question mentions an addendum, each recorded change contributes a
+    query for its old value (finds the original passage) and its new value
+    (finds the addendum passage), so both sides of a change are retrievable.
+    """
+    if not any(_ADDENDUM_WORD.search(q) for q in queries):
+        return []
+    path = settings.path("outputs_dir") / f"{bid_id}.json"
+    if not path.exists():
+        return []
+    try:
+        record = BidRecord.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return []
+    extra: list[str] = []
+    for change in record.addendum_changes[:MAX_CHANGE_QUERIES]:
+        if change.old_value:
+            extra.append(f"{change.field} {change.old_value[:80]}")
+        extra.append(f"addendum {change.addendum_number} {change.field} {change.new_value[:80]}")
+    return _dedupe(extra)
 
 
 def run_request(request: EvidenceRequest) -> EvidenceBundle:

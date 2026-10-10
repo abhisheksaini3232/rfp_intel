@@ -16,12 +16,19 @@ from rfp_intel.agents.nodes.retrieve import QA_PREFIX
 from rfp_intel.agents.nodes.validate import chunk_index, score_index
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import settings
-from rfp_intel.logging_utils import log_step
+from rfp_intel.logging_utils import log_step, record_tool_call
 from rfp_intel.schemas import Answer, AnswerDraft, BidRecord, Citation, EvidenceBundle, SearchHit, SupportChecks
 
 NOT_FOUND = "Not found in documents"
 QUOTE_LIMIT = 300
 MAX_ANSWER_RETRIES = 1
+ANSWER_CHECK_RULES = (
+    "\n\nThe field above is a free-text answer to a user's question. Judge only its factual claims "
+    "(dates, times, numbers, names, amounts, requirements): each must be stated in the cited evidence. "
+    "Wording that merely restates the question's framing (\"after all addendums\", \"for each bid\", "
+    "\"the final\", \"currently\") needs no separate proof. An answer that says a bid lacks "
+    "information is supported when the evidence for that bid indeed does not contain it.\n"
+)
 
 
 def qa_evidence(evidence: dict[str, EvidenceBundle]) -> dict[str, SearchHit]:
@@ -104,6 +111,8 @@ def answer(state: dict) -> dict:
         return {"answer": not_found_answer(question, bids, len(evidence)),
                 "errors": [f"answer: LLM call failed: {type(exc).__name__}: {exc}"]}
     citations = resolve_citations(draft, evidence)
+    record_tool_call("draft", found=draft.found, answer=draft.answer[:300], evidence_ids=draft.evidence_ids,
+                     resolved_citations=len(citations))
     if not draft.found or not citations or draft.answer.strip().lower().startswith(NOT_FOUND.lower()):
         return {"answer": not_found_answer(question, bids, len(evidence))}
     scores = score_index(state.get("evidence", {}))
@@ -122,8 +131,10 @@ def validate_answer(state: dict) -> dict:
         return {"to_retry": [], "widened": False}
     chunks = chunk_index(state.get("evidence", {}))
     quotes_ok = all(rules.quote_in_chunk(c, chunks) for c in ans.citations)
-    supported, error = _support(ans, chunks)
+    supported, reason, error = _support(ans, chunks)
     errors = [error] if error else []
+    record_tool_call("answer_check", quotes_ok=quotes_ok, supported=supported, reason=reason,
+                     citations=len(ans.citations), retries=dict(state.get("retries", {})))
     if quotes_ok and supported:
         return {"answer": ans.model_copy(update={"confidence": round(min(1.0, ans.confidence + 0.3), 3)}),
                 "to_retry": [], "widened": False, "errors": errors}
@@ -136,19 +147,22 @@ def validate_answer(state: dict) -> dict:
             "errors": errors}
 
 
-def _support(ans: Answer, chunks: dict) -> tuple[bool, str | None]:
-    """One LLM support check for the whole answer."""
+def _support(ans: Answer, chunks: dict) -> tuple[bool, str, str | None]:
+    """One LLM support check for the whole answer: (supported, reason, error)."""
     fields_block = f"- answer: value={ans.answer!r}; quotes=" + " | ".join(f"{c.quote!r}" for c in ans.citations)
     cited = {c.chunk_id for c in ans.citations}
     evidence_block = "\n\n".join(f"[{cid[-8:]}] ({chunks[cid].file_name}, p.{chunks[cid].page})\n{chunks[cid].text}"
                                  for cid in cited if cid in chunks)
     prompt = (load_prompt("validate").replace("{bid_id}", ", ".join(ans.bids))
-              .replace("{fields_block}", fields_block).replace("{evidence_block}", evidence_block))
+              .replace("{fields_block}", fields_block).replace("{evidence_block}", evidence_block)
+              + ANSWER_CHECK_RULES)
     try:
         result, _ = llm.structured(prompt, SupportChecks, settings.env.reason_model)
     except Exception as exc:  # noqa: BLE001
-        return True, f"validate_answer: support check failed: {type(exc).__name__}: {exc}"
-    return all(item.supported for item in result.items) if result.items else True, None
+        return True, "", f"validate_answer: support check failed: {type(exc).__name__}: {exc}"
+    if not result.items:
+        return True, "", None
+    return all(item.supported for item in result.items), "; ".join(i.reason for i in result.items if i.reason), None
 
 
 def _norm_id(raw: str | None) -> str:
