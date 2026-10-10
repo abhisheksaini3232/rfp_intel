@@ -1,0 +1,81 @@
+- name: Bid Number
+  group: commercial_legal
+  description: Official solicitation / RFP identifier(s). Return every official ID found (RFP number, sourcing or portal number), primary first.
+  search_hints: [solicitation number, RFP number, bid number, reference number, PORFP number, sourcing number]
+- name: Title
+  group: commercial_legal
+  description: Full title of the bid or RFP.
+  search_hints: [title, request for proposal, solicitation title]
+- name: Due Date
+  group: dates_logistics
+  description: Final submission deadline with date, time and time zone, reflecting any addendum changes. Give the value as written and note the original date if changed.
+  search_hints: [due date, closing date, submission deadline, solicitation due, proposal due, extend the due date]
+- name: Bid Submission Type
+  group: dates_logistics
+  description: How bids are submitted (electronic portal, sealed paper, email) and any prohibited methods.
+  search_hints: [submit, submission, electronic, portal, sealed envelope, hard copy, email submissions, fax]
+- name: Term of Bid
+  group: dates_logistics
+  description: Contract duration and renewal options, or proposal validity period if no contract term is stated.
+  search_hints: [term, length of contract, renewal, initial term, extension, valid for days]
+- name: Pre Bid Meeting
+  group: dates_logistics
+  description: Date, time, location/format and whether attendance is mandatory, or "None".
+  search_hints: [pre-proposal meeting, pre-bid conference, prebid, mandatory, attendance]
+- name: Installation
+  group: dates_logistics
+  description: Whether installation, deployment, imaging, asset tagging or setup services are required, and what they include.
+  search_hints: [installation, deployment, white glove, imaging, asset tag, etching, setup, autopilot]
+- name: Bid Bond Requirement
+  group: commercial_legal
+  description: Required bid bond or bid security amount/percentage. If none is stated, status not_found.
+  search_hints: [bid bond, bid security, surety, bond, guarantee]
+- name: Delivery Date
+  group: dates_logistics
+  description: Required delivery date or delivery window after award, and delivery location if stated.
+  search_hints: [delivery, deliver within, days of award, ship, shipping]
+- name: Payment Terms
+  group: commercial_legal
+  description: Payment terms (e.g. Net 30) and invoicing conditions.
+  search_hints: [payment terms, net 30, invoice, invoicing, payment]
+- name: Any Additional Documentation Required
+  group: commercial_legal
+  description: Affidavits, forms, certificates, insurance, W-9, references, addendum acknowledgments and other documents bidders must submit.
+  search_hints: [affidavit, form, certificate, W-9, W9, insurance, references, attach, acknowledge addendum, 1295, MWBE]
+  doc_types: [rfp, addendum, affidavit, form, bid_page]
+- name: MFG for Registration
+  group: commercial_legal
+  description: Manufacturer(s) the bidder must be registered with or authorized by (authorized reseller, letter of authorization, factory certifications).
+  search_hints: [authorized reseller, manufacturer, letter of authorization, factory-authorized, OEM]
+- name: Contract or Cooperative to use
+  group: commercial_legal
+  description: Referenced cooperative, master contract or state contract vehicle, if any.
+  search_hints: [master contract, cooperative, interlocal, rider, piggyback, contract number]
+- name: Model_no
+  group: product_specs
+  description: Model number(s) of requested products. not_found if the bid only lists generic specifications.
+  search_hints: [model, latitude, product name, model number]
+- name: Part_no
+  group: product_specs
+  description: Part / SKU numbers of requested products.
+  search_hints: [SKU, part number, SI#, item number]
+- name: Product
+  group: product_specs
+  description: Product name(s) with quantities.
+  search_hints: [quantity, qty, product, item, target quantity, each]
+- name: contact_info
+  group: commercial_legal
+  description: "Procurement contact(s): name, email, phone. Include all distinct contacts, primary first."
+  search_hints: [contact, buyer, procurement officer, email, phone, point of contact]
+- name: company_name
+  group: commercial_legal
+  description: Issuing organization / agency name.
+  search_hints: [issuing organization, district, agency, office, purchasing department]
+- name: Bid Summary
+  group: report
+  description: 3-6 sentence summary generated from the validated fields.
+  search_hints: []
+- name: Product Specification
+  group: product_specs
+  description: Key technical specifications (CPU, RAM, storage, display, wireless, OS, warranty). For multi-tier bids, summarize per tier.
+  search_hints: [specifications, minimum requirements, processor, memory, storage, display, warranty]
