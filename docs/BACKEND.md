@@ -222,10 +222,10 @@ flowchart TD
     TXT --> PACK[pack paragraphs to max_tokens 400<br/>overlap 60 tokens into the next chunk<br/>split long paragraphs by sentence]
     D --> TB{page.tables}
     TB --> REAL{real table?<br/>>= 50% rows with 2+ cells}
-    REAL -- yes --> TAB['table' chunk: rows as 'a | b | c'<br/>header row repeated when split]
+    REAL -- yes --> TAB["'table' chunk: rows as 'a | b | c'<br/>header row repeated when split"]
     REAL -- no --> DROP[skip: layout grid, text already in page]
-    QA & SPEC & PACK & TAB & REC --> K[keep: drop < 40 tokens unless qa/record,<br/>drop exact duplicates]
-    K --> HDR[header = 'Bid1 | addendum 2 | file | p1 | section'<br/>embed/BM25 text = header + newline + text]
+    QA & SPEC & PACK & TAB & REC --> K["keep: drop < 40 tokens unless qa/record,<br/>drop exact duplicates"]
+    K --> HDR["header = 'Bid1 | addendum 2 | file | p1 | section'<br/>embed/BM25 text = header + newline + text"]
 ```
 
 Why: RFP facts live in Q&A pairs, bullet spec lists, tables and the portal
@@ -243,11 +243,11 @@ retrievable from both sides. The header gives every chunk its own context
 
 ```mermaid
 sequenceDiagram
-    participant C as caller (CLI / API / ingest node)
+    participant C as caller: CLI / API / ingest node
     participant E as SearchEngine
     participant M as storage/manifest.json
-    participant V as Qdrant (storage/qdrant)
-    participant B as BM25Store (storage/bm25/&lt;bid&gt;.pkl)
+    participant V as Qdrant storage/qdrant
+    participant B as BM25Store storage/bm25/bid.pkl
     C->>E: index_bid(folder)
     E->>M: read {bid: {files: sha1..., config: hash}}
     alt unchanged and not force
@@ -281,14 +281,14 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    Q[query text] --> PF[parse_filters<br/>bid ids, 'addendum N',<br/>scoped doc types: 'only search ... specs',<br/>'in the RFP'] --> MF[merge with explicit filters<br/>explicit wins]
+    Q[query text] --> PF["parse_filters<br/>bid ids, 'addendum N',<br/>scoped doc types: 'only search ... specs',<br/>'in the RFP'"] --> MF["merge with explicit filters<br/>explicit wins"]
     PF --> CQ[cleaned query]
-    CQ --> EX[expand_query<br/>synonyms.yaml, whole phrase,<br/>up to 4 variants]
-    EX --> V[vector search per variant<br/>bge-small query prefix<br/>Qdrant filter, 30 candidates]
-    EX --> K[BM25 per variant<br/>tokens keep IDs whole + parts<br/>30 candidates]
-    V & K --> RRF[RRF k=60 over all ranked lists]
-    RRF --> RR[cross-encoder re-rank top 20<br/>on query vs header+text]
-    RR --> OUT[final_top_k SearchHits<br/>ranks = {vector, bm25, rerank}]
+    CQ --> EX["expand_query<br/>synonyms.yaml, whole phrase,<br/>up to 4 variants"]
+    EX --> V["vector search per variant<br/>bge-small query prefix<br/>Qdrant filter, 30 candidates"]
+    EX --> K["BM25 per variant<br/>tokens keep IDs whole + parts<br/>30 candidates"]
+    V & K --> RRF["RRF k=60 over all ranked lists"]
+    RRF --> RR["cross-encoder re-rank top 20<br/>on query vs header+text"]
+    RR --> OUT["final_top_k SearchHits<br/>ranks = {vector, bm25, rerank}"]
     MF --> V
     MF --> K
 ```
@@ -320,14 +320,14 @@ API: `GET /search?q=...&bid_id=...&doc_type=...&addendum=...&top_k=...&config=..
 
 ```mermaid
 flowchart LR
-    A[structured(prompt, Model, model_name, system)] --> S[strict JSON schema from the Pydantic model<br/>all properties required, no extras]
-    S --> P{provider from LLM_PROVIDER}
-    P -- openai --> O[chat.completions<br/>response_format json_schema strict<br/>max_completion_tokens]
-    P -- anthropic --> AN[messages<br/>output_config.format json_schema]
-    O & AN --> V{Model.model_validate_json}
-    V -- ok --> R[(model instance, Usage tokens + cost)]
-    V -- invalid --> RETRY[retry once with the validation error appended]
-    RETRY --> V2{valid?}
+    A["structured(prompt, Model, model_name, system)"] --> S["strict JSON schema from the Pydantic model<br/>all properties required, no extras"]
+    S --> P{"provider from LLM_PROVIDER"}
+    P -- openai --> O["chat.completions<br/>response_format json_schema strict<br/>max_completion_tokens"]
+    P -- anthropic --> AN["messages<br/>output_config.format json_schema"]
+    O & AN --> V{"Model.model_validate_json"}
+    V -- ok --> R["model instance + Usage: tokens, cost"]
+    V -- invalid --> RETRY["retry once with the validation error appended"]
+    RETRY --> V2{"valid?"}
     V2 -- no --> ERR[LLMError]
     O -- timeout / API error --> ERR
 ```
@@ -546,12 +546,12 @@ Tests: `tests/test_error_handling.py`, `tests/test_ingestion_failures.py`, `test
 
 ```mermaid
 flowchart LR
-    Q[eval/retrieval_questions.jsonl<br/>20 x {question, bid, expected_file, key_phrase}] --> RE[eval/run_retrieval_eval.py<br/>search per config, bid filter, top 10<br/>relevant = expected file + key phrase]
-    RE --> R1[eval/results/retrieval.md / .json<br/>Recall@1/3/5/10, MRR per config]
-    G[eval/gold/Bid*.json<br/>value + must_contain per field] --> EE[eval/run_extraction_eval.py<br/>tokens strict, LLM judge for free text<br/>gold 'None' == not_found]
-    O[outputs/Bid*.json] --> EE
-    EE --> R2[eval/results/extraction.md / .json<br/>exact / partial / wrong, accuracy]
-    QL[eval/run_qa_log.py<br/>12 questions through the QA graph] --> R3[eval/qa_log.md]
+    Q["eval/retrieval_questions.jsonl<br/>20 x {question, bid, expected_file, key_phrase}"] --> RE["eval/run_retrieval_eval.py<br/>search per config, bid filter, top 10<br/>relevant = expected file + key phrase"]
+    RE --> R1["eval/results/retrieval.md / .json<br/>Recall@1/3/5/10, MRR per config"]
+    G["eval/gold/Bid*.json<br/>value + must_contain per field"] --> EE["eval/run_extraction_eval.py<br/>tokens strict, LLM judge for free text<br/>gold 'None' == not_found"]
+    O["outputs/Bid*.json"] --> EE
+    EE --> R2["eval/results/extraction.md / .json<br/>exact / partial / wrong, accuracy"]
+    QL["eval/run_qa_log.py<br/>12 questions through the QA graph"] --> R3["eval/qa_log.md"]
 ```
 
 `eval/verify_eval_data.py` checks that every key phrase and gold token exists
