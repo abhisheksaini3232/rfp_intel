@@ -36,7 +36,7 @@ Scoring: must_contain tokens (strict); LLM judge on for fields without tokens. F
 | Due Date | June 10, 2024 2:00 PM EDT | 06/10/2024 02:00 PM EDT | exact | 1 |
 | Bid Submission Type | Electronic only via eMMA; no email, fax, mail or hand delivery | Electronic submission through the State's eMaryland Marketplace Advantage (eMMA) e-Proc... | exact | 1 |
 | Term of Bid | One-time fixed-price purchase order; proposals valid for at least 90 days | Proposals/quotes must be valid for at least 90 days after the set due date. | exact | 1 |
-| Pre Bid Meeting | None |  | wrong | 0 |
+| Pre Bid Meeting | None |  | exact | 0 |
 | Installation |  | Factory installation is listed; the specifications also list a Custom Asset Report and ... | wrong | 2 |
 | Bid Bond Requirement |  |  | exact | 0 |
 | Delivery Date | Within 45 days of award, to 80 Calvert St, Annapolis | Within 45 days of Award; 80 Calvert Street, Room 109, Annapolis, MD 21401. | exact | 2 |
@@ -57,6 +57,6 @@ Scoring: must_contain tokens (strict); LLM judge on for fields without tokens. F
 | bid | fields | exact | partial | wrong | accuracy | with citations | values w/o citation |
 |---|---|---|---|---|---|---|---|
 | Bid1 | 19 | 15 | 2 | 2 | 0.842 | 16 | 0 |
-| Bid2 | 19 | 15 | 2 | 2 | 0.842 | 18 | 0 |
+| Bid2 | 19 | 16 | 2 | 1 | 0.895 | 18 | 0 |
 
 accuracy = (exact + 0.5 * partial) / scored fields

@@ -21,7 +21,7 @@ _PART_SPLIT = re.compile(r"[-#]")
 
 
 def tokenize(text: str) -> list[str]:
-    """Lower-case tokens; IDs stay whole ("ja-207652", "wd22tb4", "si#").
+    """Lower-case tokens; IDs stay whole ("rfp-2025-001", "ab12cd3", "si#").
 
     Compound tokens are followed by their parts ("ja", "207652") so a search
     for part of an ID still matches.

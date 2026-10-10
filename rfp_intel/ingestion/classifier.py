@@ -12,10 +12,10 @@ from rfp_intel.schemas import DocType
 
 _MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
 _DATE_PATTERNS = [
-    re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),                                  # 2024-07-09
+    re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),                                  # 2025-01-15
     re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"),                      # 07/09/2024
     re.compile(rf"\b\d{{1,2}}-{_MONTH}-\d{{2,4}}\b", re.IGNORECASE),        # 27-JUN-2024
-    re.compile(rf"\b{_MONTH}\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}\b", re.IGNORECASE),  # July 9, 2024
+    re.compile(rf"\b{_MONTH}\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}\b", re.IGNORECASE),  # January 15, 2025
     re.compile(rf"\b\d{{1,2}}\s+{_MONTH}\s+\d{{4}}\b", re.IGNORECASE),     # 9 July 2024
 ]
 _DATE_KEYWORD = re.compile(

@@ -74,7 +74,7 @@
           "score": "exact",
           "citations": 0,
           "counted": true,
-          "reason": "gold is not_found"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Delivery Date",
@@ -83,7 +83,7 @@
           "score": "partial",
           "citations": 1,
           "counted": true,
-          "reason": "judge: It correctly notes that there is no fixed delivery date, but omits project-by-project quotes starting September 2024 and that the delivery schedule is set with Educational Technology."
+          "reason": "judge: It correctly notes that there is no fixed delivery date, but omits project-based quotes starting September 2024 and the delivery schedule being set with Educational Technology."
         },
         {
           "field": "Payment Terms",
@@ -92,7 +92,7 @@
           "score": "wrong",
           "citations": 1,
           "counted": true,
-          "reason": "gold is not_found"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Any Additional Documentation Required",
@@ -128,7 +128,7 @@
           "score": "exact",
           "citations": 0,
           "counted": true,
-          "reason": "gold is not_found"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Part_no",
@@ -137,7 +137,7 @@
           "score": "exact",
           "citations": 0,
           "counted": true,
-          "reason": "gold is not_found"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Product",
@@ -173,7 +173,7 @@
           "score": "partial",
           "citations": 35,
           "counted": false,
-          "reason": "judge: The summary correctly captures the bid, quantities, deadline, submission methods, term, and cooperatives, but omits the pre-bid meeting, delivery timing, contacts, device specifications, and several required documents."
+          "reason": "judge: The summary correctly covers the bid identity, quantities, deadline, submission methods, term, and deployment services, but omits the pre-bid meeting, delivery timing, contact details, device specifications, and several required documents."
         },
         {
           "field": "Product Specification",
@@ -245,10 +245,10 @@
           "field": "Pre Bid Meeting",
           "gold": "None",
           "output": "",
-          "score": "wrong",
+          "score": "exact",
           "citations": 0,
           "counted": true,
-          "reason": "no value extracted"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Installation",
@@ -257,7 +257,7 @@
           "score": "wrong",
           "citations": 2,
           "counted": true,
-          "reason": "gold is not_found"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Bid Bond Requirement",
@@ -266,7 +266,7 @@
           "score": "exact",
           "citations": 0,
           "counted": true,
-          "reason": "gold is not_found"
+          "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Delivery Date",
@@ -365,7 +365,7 @@
           "score": "partial",
           "citations": 28,
           "counted": false,
-          "reason": "judge: The summary captures the bid, products, deadline, electronic submission, delivery, and several documentation requirements, but omits key gold facts including the Small Business Reserve, Contract Affidavit, ENERGY STAR requirement, and detailed laptop specifications."
+          "reason": "judge: The summary captures the main bid, products, deadline, submission method, delivery, and warranty terms, but omits several gold facts, including the Small Business Reserve, Contract Affidavit, ENERGY STAR requirement, and key laptop specifications."
         },
         {
           "field": "Product Specification",
@@ -377,11 +377,11 @@
           "reason": "all tokens present"
         }
       ],
-      "exact": 15,
+      "exact": 16,
       "partial": 2,
-      "wrong": 2,
+      "wrong": 1,
       "scored_fields": 19,
-      "accuracy": 0.842,
+      "accuracy": 0.895,
       "fields_with_citations": 18,
       "values_without_citation": 0
     }

@@ -2,7 +2,7 @@
 
 Text lines are rebuilt from PyMuPDF spans grouped by row. A space is inserted
 wherever two spans on the same row are separated by a visible gap, so
-side-by-side columns ("210-BLYZ" | "Dell Latitude 5550") do not run together.
+side-by-side columns ("210-ABCD" | "Widget Base Unit") do not run together.
 A larger vertical gap between rows becomes a blank line (paragraph break).
 """
 

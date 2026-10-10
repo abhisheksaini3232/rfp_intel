@@ -82,9 +82,11 @@ def score_field(field: str, gold: GoldField, output: FieldValue, judge: bool = T
     has_value = output.value is not None and output.status != "not_found" and out_text != ""
     base = {"field": field, "gold": value_text(gold.value), "output": out_text,
             "citations": len(output.sources), "counted": gold.scoring != "faithfulness"}
-    if gold.status == "not_found":
-        score: Score = "wrong" if has_value else "exact"
-        return FieldScore(**base, score=score, reason="gold is not_found")
+    gold_none = gold.status == "not_found" or _is_none_phrase(value_text(gold.value))
+    if gold_none:
+        absent = not has_value or _is_none_phrase(out_text)
+        score: Score = "exact" if absent else "wrong"
+        return FieldScore(**base, score=score, reason="gold states nothing is required / not found")
     if not has_value:
         return FieldScore(**base, score="wrong", reason="no value extracted")
     if gold.must_contain and gold.scoring != "faithfulness":
@@ -94,6 +96,14 @@ def score_field(field: str, gold: GoldField, output: FieldValue, judge: bool = T
         return FieldScore(**base, score="partial", reason="judge disabled; value present")
     score, reason = judge_field(field, reference or value_text(gold.value), out_text)
     return FieldScore(**base, score=score, reason=reason)
+
+
+_NONE_PHRASES = {"none", "n/a", "na", "not stated", "not specified", "not required", "not found", "no"}
+
+
+def _is_none_phrase(text: str) -> bool:
+    """True for values that only say "nothing" ("None", "N/A", "Not stated")."""
+    return text.strip().lower().rstrip(".") in _NONE_PHRASES
 
 
 def token_score(text: str, tokens: list[str]) -> tuple[Score, str]:
@@ -154,9 +164,9 @@ def _gold_digest(gold: dict[str, GoldField]) -> str:
     return "The summary must be consistent with these gold field values:\n" + "\n".join(lines)
 
 
-def load_record(bid_id: str) -> BidRecord | None:
-    """outputs/<bid>.json as a BidRecord, or None if missing."""
-    path = settings.path("outputs_dir") / f"{bid_id}.json"
+def load_record(bid_id: str, outputs_dir: Path | None = None) -> BidRecord | None:
+    """<outputs_dir>/<bid>.json as a BidRecord (default outputs/), or None if missing."""
+    path = (outputs_dir or settings.path("outputs_dir")) / f"{bid_id}.json"
     if not path.exists():
         return None
     return BidRecord.model_validate_json(path.read_text(encoding="utf-8"))
@@ -165,19 +175,24 @@ def load_record(bid_id: str) -> BidRecord | None:
 # ---------------------------------------------------------------- entry point
 
 
-def run_extraction_eval(bid_ids: list[str] | None = None, judge: bool = True) -> dict:
-    """Score every bid with gold + output, write extraction.md/.json, return the results dict."""
+def run_extraction_eval(bid_ids: list[str] | None = None, judge: bool = True,
+                        outputs_dir: Path | None = None, results_dir: Path = RESULTS_DIR) -> dict:
+    """Score every bid with gold + output, write extraction.md/.json, return the results dict.
+
+    `outputs_dir` / `results_dir` let a saved snapshot (e.g. the baseline
+    records in eval/results/baseline/) be scored with the same rules.
+    """
     results: list[BidResult] = []
     for bid_id in bid_ids or gold_bid_ids():
-        record = load_record(bid_id)
+        record = load_record(bid_id, outputs_dir)
         if record is None:
-            print(f"skipping {bid_id}: outputs/{bid_id}.json not found")
+            print(f"skipping {bid_id}: {bid_id}.json not found in {outputs_dir or settings.path('outputs_dir')}")
             continue
         results.append(score_bid(bid_id, load_gold(bid_id), record, judge))
     payload = {"judge": judge, "bids": [r.model_dump() for r in results]}
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    (RESULTS_DIR / "extraction.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    (RESULTS_DIR / "extraction.md").write_text(render_markdown(results, judge), encoding="utf-8")
+    results_dir.mkdir(parents=True, exist_ok=True)
+    (results_dir / "extraction.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    (results_dir / "extraction.md").write_text(render_markdown(results, judge), encoding="utf-8")
     return payload
 
 

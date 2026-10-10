@@ -216,9 +216,16 @@ def test_scoring_not_found_and_missing():
 
 
 def test_scoring_without_tokens_uses_judge_or_partial():
-    gold = GoldField(value="None", must_contain=[])
-    result = score_field("Pre Bid Meeting", gold, fv("None", n_citations=2), judge=False)
+    gold = GoldField(value="June 10, 2024 2:00 PM via Teams", must_contain=[])
+    result = score_field("Pre Bid Meeting", gold, fv("June 10, 2024, Teams", n_citations=2), judge=False)
     assert result.score == "partial" and result.citations == 2 and result.counted
+
+
+def test_gold_none_matches_not_found_or_none_value():
+    gold = GoldField(value="None", must_contain=[])
+    assert score_field("Pre Bid Meeting", gold, fv(None, status="not_found"), judge=False).score == "exact"
+    assert score_field("Pre Bid Meeting", gold, fv("N/A"), judge=False).score == "exact"
+    assert score_field("Pre Bid Meeting", gold, fv("June 10, 2024 via Teams"), judge=False).score == "wrong"
     faithful = GoldField(value=None, must_contain=[], scoring="faithfulness")
     result = score_field("Bid Summary", faithful, fv("A summary."), judge=False)
     assert result.score == "partial" and not result.counted
