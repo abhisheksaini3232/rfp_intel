@@ -21,4 +21,4 @@ cost:                         # USD per 1k tokens, per model name; unknown model
   usd_per_1k_input:  {gpt-6-luna: 0.0001, gpt-6-sol: 0.002}
   usd_per_1k_output: {gpt-6-luna: 0.0005, gpt-6-sol: 0.010}
 cache: {enabled: false, similarity_threshold: 0.95}
-api: {cors_origins: ["http://localhost:5173"]}
+api: {cors_origins: ["http://localhost:5173", "http://localhost:5174"]}
