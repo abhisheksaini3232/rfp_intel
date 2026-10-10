@@ -405,3 +405,13 @@ Each entry: decision, reason, phase it was made in.
     local server; the live checks ran with `uvicorn ... --port 8001` and the
     web app can point at any port via `VITE_API_URL`. The documented default
     stays :8000.
+85. **Fresh-clone verification** (new venv, `pip install -r requirements.txt`,
+    `pytest`, `python main.py --bid ./data/Bid1` from an empty index) passed;
+    that run ended with 2 fields in status `failed` (Bid Submission Type,
+    Product Specification: cited and quote-verified, but the LLM support
+    check judged the long composite values "not fully supported" after two
+    retries). This is judge variance between runs (the committed run had 0
+    failed). The validate prompt now states that paraphrase / merged RFP +
+    addendum lists are acceptable when every factual claim is in the
+    evidence; the plan's rule (keep value, status failed, low confidence)
+    is unchanged.

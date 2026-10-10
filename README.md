@@ -267,6 +267,7 @@ recorded the fixture's addendum due-date override (`outputs/MiniBid.json`).
 - Example agent trace (Bid1, 25 steps incl. parallel extractors and two validator retries): [logs/example_trace.jsonl](logs/example_trace.jsonl)
 - Requirements checklist: [docs/CHECKLIST.md](docs/CHECKLIST.md)
 - Demo video script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+- Backend walkthrough with diagrams: [docs/BACKEND.md](docs/BACKEND.md)
 
 ## Deliverables
 
