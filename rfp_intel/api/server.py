@@ -207,9 +207,15 @@ def bids() -> list[BidSummary]:
 
 
 @app.post("/bids", response_model=IndexStats)
-async def upload_bid(bid_id: str = Form(...), files: list[UploadFile] = File(...)) -> IndexStats:
-    """Save uploaded files into data/<bid_id> and index them."""
-    payload = [(upload.filename or "", await upload.read()) for upload in files]
+def upload_bid(bid_id: str = Form(...), files: list[UploadFile] = File(...)) -> IndexStats:
+    """Save uploaded files into data/<bid_id> and index them.
+
+    Deliberately a sync endpoint: indexing a large PDF blocks for minutes, and
+    FastAPI runs `def` endpoints in a worker thread, so the rest of the API
+    keeps answering. As `async def` this would block the event loop and freeze
+    every other request until the index finished.
+    """
+    payload = [(upload.filename or "", upload.file.read()) for upload in files]
     try:
         folder = services.save_upload(bid_id, payload)
     except ValueError as exc:

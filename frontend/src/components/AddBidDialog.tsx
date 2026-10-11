@@ -78,6 +78,16 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
     onError: (err) => toast.error(err.message),
   });
 
+  /** Closing while the upload runs is allowed: the mutation finishes in the background. */
+  const closeDialog = (next: boolean) => {
+    if (!next && upload.isPending) {
+      toast.info(`Indexing ${bidId.trim()} in the background`, {
+        description: "Large PDFs take a few minutes. The bid appears on the Bids page when it is ready.",
+      });
+    }
+    onOpenChange(next);
+  };
+
   const reset = () => {
     setBidId("");
     setFiles([]);
@@ -93,13 +103,14 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
   const canSubmit = validId && files.length > 0 && !upload.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!upload.isPending) onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent>
         <DialogHeader className="pr-6">
           <DialogTitle>Add bid</DialogTitle>
           <DialogDescription>
             Choose a bid id and drop the RFP, addenda and forms (PDF or HTML). The files are saved
-            and indexed immediately.
+            and indexed immediately; a large PDF can take a few minutes, and you can close this
+            dialog while it finishes.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -205,8 +216,8 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
           )}
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={upload.isPending}>
-              Cancel
+            <Button type="button" variant="ghost" onClick={() => closeDialog(false)}>
+              {upload.isPending ? "Close" : "Cancel"}
             </Button>
             <Button type="submit" disabled={!canSubmit}>
               {upload.isPending && <Loader2 className="animate-spin" />}
