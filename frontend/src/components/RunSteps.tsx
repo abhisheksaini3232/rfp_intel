@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import type { RunState, StepLog } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatUsd } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface RunStepsProps {
   steps: StepLog[];
@@ -12,16 +12,14 @@ interface RunStepsProps {
 function totals(steps: StepLog[]) {
   return steps.reduce(
     (acc, s) => ({
-      tokens: acc.tokens + s.tokens_in + s.tokens_out,
-      cost: acc.cost + s.cost_usd,
       latency: acc.latency + s.latency_ms,
       errors: acc.errors + (s.error ? 1 : 0),
     }),
-    { tokens: 0, cost: 0, latency: 0, errors: 0 },
+    { latency: 0, errors: 0 },
   );
 }
 
-/** Vertical timeline of StepLog entries with per-step metrics. */
+/** Vertical timeline of StepLog entries with per-step timing (tokens and cost stay in the API trace). */
 export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
   const sum = totals(steps);
   return (
@@ -29,8 +27,7 @@ export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <StatusPill status={status} />
         <span className="min-w-0 text-muted-foreground">
-          {steps.length} step{steps.length === 1 ? "" : "s"} · {sum.tokens.toLocaleString()} tokens ·{" "}
-          {formatUsd(sum.cost)} · {(sum.latency / 1000).toFixed(1)}s
+          {steps.length} step{steps.length === 1 ? "" : "s"} · {(sum.latency / 1000).toFixed(1)}s
           {sum.errors > 0 && <span className="text-red-600 dark:text-red-400"> · {sum.errors} error(s)</span>}
         </span>
       </div>
@@ -55,7 +52,7 @@ export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
                   {step.node}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {step.latency_ms} ms · {step.tokens_in}/{step.tokens_out} tok · {formatUsd(step.cost_usd)}
+                  {step.latency_ms} ms
                 </span>
               </div>
               {!compact && (

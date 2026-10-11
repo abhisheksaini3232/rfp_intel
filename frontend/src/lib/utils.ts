@@ -45,11 +45,6 @@ export function citationLabel(citation: Citation): string {
   return `${citation.file} p.${citation.page}`;
 }
 
-/** Format a number as a short currency string. */
-export function formatUsd(value: number): string {
-  return `$${value.toFixed(4)}`;
-}
-
 /** Format an ISO timestamp for display, tolerating bad input. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "-";
