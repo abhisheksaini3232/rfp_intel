@@ -1,8 +1,6 @@
 # RFP Intelligence Platform
 
-> ## 🎥 Demo Video
-> ### **[▶ Watch the demo video (Google Drive)](https://drive.google.com/drive/folders/1hZYN21aU1L6XfzHsEbdoW9jQt4dhrKIF?usp=sharing)**
-> A 5–10 minute walkthrough of the full platform — one-command run, search, extraction, Q&A, comparison and the web app.
+### 🎥 [Demo video](https://drive.google.com/drive/folders/1hZYN21aU1L6XfzHsEbdoW9jQt4dhrKIF?usp=sharing)
 
 Reads a bid folder (PDF + HTML, including addendums), indexes it in a hybrid
 search engine, and runs a LangGraph multi-agent system that extracts 20 fields
@@ -30,9 +28,8 @@ data/<Bid>/*.pdf|*.html  ->  ingestion  ->  chunks  ->  Qdrant (dense) + BM25
 5. [Design decisions](#design-decisions)
 6. [Results](#results)
 7. [Bonus features](#bonus-features)
-8. [Deliverables](#deliverables)
-9. [Assumptions and limitations](#assumptions-and-limitations)
-10. [Repository tree](#repository-tree)
+8. [Assumptions and limitations](#assumptions-and-limitations)
+9. [Repository tree](#repository-tree)
 
 ## Setup
 
@@ -376,23 +373,6 @@ Each criterion names the fields it is judged on, is `critical` or not, and
 says what to conclude when the bid states nothing (`when_not_found`). The
 recommendation is deterministic: `no_go` on a critical miss, `review` when
 something is unknown or a non-critical criterion fails, `go` otherwise.
-
-## Deliverables
-
-Mapped to the assignment brief:
-
-| Deliverable | Where |
-|---|---|
-| Source code: ingestion, RAG search engine, multi-agent system, API/CLI | `rfp_intel/ingestion`, `rfp_intel/search`, `rfp_intel/agents`, `rfp_intel/api`, `main.py` |
-| README: setup, dependencies, modes, design decisions | this file (chunking, embeddings, retrieval, agent framework, prompts above) |
-| Architecture diagram | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the diagram above |
-| JSON output per bid (values, citations, confidence) | [outputs/Bid1.json](outputs/Bid1.json), [outputs/Bid2.json](outputs/Bid2.json) (+ `_summary.md`; `outputs/MiniBid.json` for the unseen-bid check) |
-| Retrieval evaluation report (question set, Recall@k / MRR per config) | [eval/results/retrieval.md](eval/results/retrieval.md) (questions in `eval/retrieval_questions.jsonl`) |
-| Sample Q&A log (>= 10 questions) | [eval/qa_log.md](eval/qa_log.md) (12 cited answers) |
-| Agent trace (one full extraction run) | [logs/example_trace.jsonl](logs/example_trace.jsonl) |
-| Demo video (5-10 min walkthrough) | **[Google Drive link](https://drive.google.com/drive/folders/1hZYN21aU1L6XfzHsEbdoW9jQt4dhrKIF?usp=sharing)** (also linked at the top of this README) |
-| Assumptions and known limitations | next section and [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) (numbered per phase) |
-| Requirements checklist | [docs/CHECKLIST.md](docs/CHECKLIST.md); testing guide [docs/TESTING.md](docs/TESTING.md); extraction eval [eval/results/extraction.md](eval/results/extraction.md); smoke test [eval/results/smoke_e2e.md](eval/results/smoke_e2e.md) |
 
 ## Assumptions and limitations
 
