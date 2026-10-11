@@ -543,3 +543,22 @@ Each entry: decision, reason, phase it was made in.
     built app) and `docker-compose.yml` (Qdrant + API + web) are the
     reference stack. A second process opening the embedded store fails fast
     with a message that names the `qdrant_server` option.
+93. **Semantic answer cache, run summaries and metrics (Phase D).** The
+    cache lives in `rfp_intel/search/answer_cache.py` and uses a second
+    Qdrant collection (`<collection>_answers`) in the same store, so it
+    works in local and server mode without new infrastructure. Key = the
+    question's embedding; a hit needs the same bid scope (sorted ids, or
+    "*" for all bids), cosine >= `cache.similarity_threshold` and the same
+    index fingerprint (a hash of the bids' manifest entries, so re-indexing
+    invalidates). "Not found" answers are never cached because they can
+    come from a transient LLM failure. The lookup happens in
+    `services.ask`, outside the agent graph, which is why it may touch the
+    engine (the "only the Retrieval agent searches" rule is about the graph
+    nodes). `cache.enabled` is now true by default (BUILD_PLAN shipped it as
+    false because it was a bonus); `Answer.cached` tells the client, and the
+    CLI offers `cache stats` / `cache clear`. Run summaries are computed
+    from the StepLogs (`summarize_run`) rather than appended to the trace,
+    so trace files keep one shape; `RunStatus.summary` and one log line per
+    finished run expose them. `GET /metrics` is plain JSON from in-process
+    counters (no Prometheus dependency; an API restart resets it).
+    `api.max_question_chars` (1000) rejects oversized questions with 422.

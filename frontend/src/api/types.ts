@@ -97,6 +97,8 @@ export interface Answer {
   citations: Citation[];
   confidence: number;
   bids: string[];
+  /** Served from the semantic answer cache. */
+  cached: boolean;
 }
 
 export interface StepLog {
@@ -127,6 +129,19 @@ export interface RunStatus {
   kind: RunKind;
   answer: Answer | null;
   error: string | null;
+  summary: RunSummary | null;
+}
+
+/** Totals over a run's steps (server-side). */
+export interface RunSummary {
+  steps: number;
+  latency_ms: number;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: number;
+  llm_calls: number;
+  searches: number;
+  errors: number;
 }
 
 /** One row of GET /runs: a run this API process started (no steps). */

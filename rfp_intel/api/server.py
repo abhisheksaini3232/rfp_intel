@@ -15,7 +15,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from rfp_intel import services
@@ -40,10 +40,22 @@ class ExtractRequest(BaseModel):
 
 
 class AskRequest(BaseModel):
-    """POST /ask body."""
+    """POST /ask and POST /ask/runs body."""
 
     question: str
     bid_ids: list[str] | None = None
+
+    @field_validator("question")
+    @classmethod
+    def _question_length(cls, value: str) -> str:
+        """Non-empty and at most api.max_question_chars characters."""
+        text = value.strip()
+        limit = settings.api.max_question_chars
+        if not text:
+            raise ValueError("question must not be empty")
+        if len(text) > limit:
+            raise ValueError(f"question is {len(text)} characters; the limit is {limit}")
+        return text
 
 
 class SearchResponse(BaseModel):
@@ -64,6 +76,32 @@ class AskQueue(BaseModel):
     running: int
     queued: int
     workers: int
+
+
+class RunMetrics(BaseModel):
+    """Per-kind run counts and latency percentiles (GET /metrics)."""
+
+    running: int
+    done: int
+    failed: int
+    p50_ms: int | None
+    p95_ms: int | None
+
+
+class CacheMetrics(BaseModel):
+    """Answer cache counters (GET /metrics)."""
+
+    enabled: bool
+    hits: int
+    misses: int
+
+
+class Metrics(BaseModel):
+    """GET /metrics response: what this API process has done since it started."""
+
+    runs: dict[str, RunMetrics]
+    ask_queue: AskQueue
+    cache: CacheMetrics
 
 
 class Health(BaseModel):
@@ -134,6 +172,12 @@ def health() -> Health:
     """Liveness, the bids the engine knows and the background question load."""
     return Health(status="ok", indexed_bids=list(get_engine().known_bids()),
                   ask_queue=AskQueue(**services.ask_queue_stats()))
+
+
+@app.get("/metrics", response_model=Metrics)
+def metrics() -> Metrics:
+    """Run counts, latency percentiles, question queue and answer-cache counters for this process."""
+    return Metrics(**services.metrics())
 
 
 @app.get("/bids", response_model=list[BidSummary])

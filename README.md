@@ -80,6 +80,7 @@ results table. Outputs: `outputs/Bid1.json` (the deliverable record),
 | Web app | `cd frontend && npm install && npm run dev` -> http://localhost:5173 (expects the API on :8000) |
 | Frontend checks | `cd frontend && npm run lint && npm test && npm run build` |
 | Docker stack | `docker compose up --build` -> web app on :5173, API on :8001, Qdrant server on :6333 |
+| Answer cache | `python main.py cache stats` / `python main.py cache clear` (semantic cache, `cache.enabled`) |
 
 Search queries can carry their own filters: a bid id ("Bid2"), "addendum 2",
 or a scoped document type ("only search Bid2 specs processor", "in the RFP").
@@ -204,7 +205,15 @@ such as the shipped `config/docker.yaml`):
 Questions from the web app run in the background (`POST /ask/runs`, polled
 through `GET /runs/{id}`) with a soft timeout (`agents.qa_timeout_s`), so a
 slow question never blocks the server; extraction keeps its one-at-a-time
-lock because it rewrites the index. `docker compose up --build` starts a
+lock because it rewrites the index. A **semantic answer cache**
+(`cache.enabled`, on by default) stores every found answer in a second Qdrant
+collection keyed by the question's embedding and the bid scope; an equivalent
+question (cosine >= `cache.similarity_threshold`) is answered instantly with a
+"cached" badge, and re-indexing a bid invalidates its entries. `GET /metrics`
+reports run counts and p50/p95 latency per kind, the question queue and
+cache hits/misses for the process; every finished run also logs one
+`run done kind=... duration_ms=...` line, and `GET /runs/{id}` carries a
+`summary` (steps, latency, tokens, cost, LLM calls, searches, errors). `docker compose up --build` starts a
 Qdrant server, the API (with `config/docker.yaml` applied) and the built web
 app; index a bid against the server with
 `RFP_SETTINGS_OVERLAY=config/docker.yaml QDRANT_URL=http://localhost:6333 python main.py index --bid data/Bid1`.

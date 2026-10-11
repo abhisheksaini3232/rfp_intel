@@ -267,6 +267,7 @@ class Answer(BaseModel):
     citations: list[Citation]
     confidence: float
     bids: list[str]
+    cached: bool = False                 # served from the semantic answer cache
 
 
 class StepLog(BaseModel):                # one line of logs/trace_<run_id>.jsonl
@@ -290,6 +291,19 @@ class StepLog(BaseModel):                # one line of logs/trace_<run_id>.jsonl
 RunKind = Literal["extract", "qa"]
 
 
+class RunSummary(BaseModel):
+    """Totals over a run's StepLogs."""
+
+    steps: int
+    latency_ms: int
+    tokens_in: int
+    tokens_out: int
+    cost_usd: float
+    llm_calls: int
+    searches: int
+    errors: int
+
+
 class RunStatus(BaseModel):
     """Progress of a background run: an extraction, or a question (answer filled when done)."""
 
@@ -300,6 +314,7 @@ class RunStatus(BaseModel):
     kind: RunKind = "extract"
     answer: Answer | None = None
     error: str | None = None
+    summary: RunSummary | None = None
 
 
 class RunInfo(BaseModel):               # GET /runs row

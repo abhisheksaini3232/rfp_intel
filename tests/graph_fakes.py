@@ -33,12 +33,39 @@ def _chunk(cid: str, bid: str, file: str, text: str, doc_type: DocType, page: in
                  text=text, token_count=len(text.split()))
 
 
+class FakeAnswerCache:
+    """In-memory stand-in for the semantic answer cache (exact-question matches)."""
+
+    def __init__(self):
+        self.items: dict[tuple[str, str, str], object] = {}
+        self.gets = 0
+
+    def get(self, question, bids, fingerprint):
+        self.gets += 1
+        hit = self.items.get((question.strip().lower(), ",".join(sorted(bids)), fingerprint))
+        return hit.model_copy(update={"cached": True, "question": question}) if hit is not None else None
+
+    def put(self, question, bids, fingerprint, answer):
+        if not answer.answer.startswith("Not found"):
+            self.items[(question.strip().lower(), ",".join(sorted(bids)), fingerprint)] = answer
+
+    def count(self):
+        return len(self.items)
+
+    def clear(self):
+        n = len(self.items)
+        self.items.clear()
+        return n
+
+
 class FakeEngine:
     """Returns the same small corpus for every query; addendum filter returns only the addendum."""
 
     def __init__(self, bid: str = "BidT", empty: bool = False):
         self.bid, self.empty = bid, empty
         self.searches: list[tuple[str, dict]] = []
+        self.answer_cache = FakeAnswerCache()
+        self.fingerprint = "fp-1"
         self.chunks = [
             _chunk("r:2:0", bid, "rfp.pdf", RFP_TEXT, DocType.RFP, page=2),
             _chunk("a:1:0", bid, "addendum_2.pdf", ADDENDUM_TEXT, DocType.ADDENDUM, addendum=2),
@@ -50,6 +77,9 @@ class FakeEngine:
 
     def warm_up(self):
         pass
+
+    def index_fingerprint(self, bids):
+        return self.fingerprint
 
     def known_bids(self):
         return [self.bid]

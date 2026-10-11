@@ -10,8 +10,11 @@ always the shared one from rfp_intel.agents.runtime.
 from __future__ import annotations
 
 import json
+import logging
 import re
+import statistics
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Literal
@@ -20,7 +23,7 @@ from rfp_intel.agents.graph import run_extraction, run_question
 from rfp_intel.agents.runtime import get_engine
 from rfp_intel.config import ROOT, settings
 from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
-from rfp_intel.logging_utils import new_run_id, read_trace
+from rfp_intel.logging_utils import new_run_id, read_trace, summarize_run
 from rfp_intel.schemas import (
     Answer,
     BidDetail,
@@ -37,6 +40,8 @@ from rfp_intel.schemas import (
     SearchHit,
 )
 
+logger = logging.getLogger("rfp_intel.runs")
+
 BID_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 EVAL_RESULTS_DIR = ROOT / "eval" / "results"
 _TERMINAL_NODES = {"report", "validate_answer"}
@@ -52,6 +57,9 @@ _extract_lock = threading.Lock()
 # the CLI never start threads they do not need.
 _ask_pool: ThreadPoolExecutor | None = None
 _ask_pool_lock = threading.Lock()
+# Process-wide counters for GET /metrics.
+_cache_hits = 0
+_cache_misses = 0
 
 
 # ---------------------------------------------------------------- paths
@@ -114,14 +122,49 @@ def extract(bid_id: str, run_id: str | None = None) -> BidRecord:
 
 
 def ask(question: str, bid_ids: list[str] | None = None, run_id: str | None = None) -> Answer:
-    """Answer a free-form question over the given bids (default: every indexed bid)."""
-    bids = list(bid_ids) if bid_ids else list(get_engine().known_bids())
+    """Answer a free-form question over the given bids (default: every indexed bid).
+
+    With `cache.enabled`, an equivalent question already answered for the same
+    bids and the same index state is served from the semantic answer cache.
+    """
+    global _cache_hits, _cache_misses
+    engine = get_engine()
+    scope = list(bid_ids or [])
+    bids = scope or list(engine.known_bids())
+    cache = getattr(engine, "answer_cache", None) if settings.cache.enabled else None
+    fingerprint = engine.index_fingerprint(scope) if cache is not None else ""
+    if cache is not None:
+        hit = _cache_lookup(cache, question, scope, fingerprint)
+        if hit is not None:
+            _cache_hits += 1
+            logger.info("ask cached run_id=%s bids=%s", run_id or "-", ",".join(bids) or "*")
+            return hit
+        _cache_misses += 1
     state = run_question(question, bids, run_id=run_id)
     answer = state.get("answer")
     if answer is None:
         return Answer(question=question, answer="Not found in documents", citations=[],
                       confidence=0.0, bids=bids)
+    if cache is not None:
+        try:
+            cache.put(question, scope, fingerprint, answer)
+        except Exception as exc:  # noqa: BLE001 - a cache failure must not fail the answer
+            logger.warning("answer cache write failed: %s: %s", type(exc).__name__, exc)
     return answer
+
+
+def _cache_lookup(cache: Any, question: str, scope: list[str], fingerprint: str) -> Answer | None:
+    """Cache lookup that never raises (a broken cache means a miss)."""
+    try:
+        return cache.get(question, scope, fingerprint)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("answer cache lookup failed: %s: %s", type(exc).__name__, exc)
+        return None
+
+
+def clear_answer_cache() -> int:
+    """Delete every cached answer; returns how many there were."""
+    return int(get_engine().answer_cache.clear())
 
 
 def start_extraction(bid_id: str) -> str:
@@ -185,6 +228,34 @@ def start_question(question: str, bid_ids: list[str] | None = None) -> str:
     return run_id
 
 
+def metrics() -> dict[str, Any]:
+    """Counts and latency percentiles of the runs this process has finished, plus cache and queue."""
+    with _runs_lock:
+        entries = [dict(e) for e in _runs.values()]
+    out: dict[str, Any] = {"runs": {}, "ask_queue": ask_queue_stats(),
+                           "cache": {"enabled": settings.cache.enabled, "hits": _cache_hits, "misses": _cache_misses}}
+    for kind in ("extract", "qa"):
+        mine = [e for e in entries if (e.get("kind") or "extract") == kind]
+        durations = sorted(int(e["duration_ms"]) for e in mine if e.get("duration_ms") is not None)
+        out["runs"][kind] = {
+            "running": sum(1 for e in mine if e["status"] == "running"),
+            "done": sum(1 for e in mine if e["status"] == "done"),
+            "failed": sum(1 for e in mine if e["status"] == "failed"),
+            "p50_ms": _percentile(durations, 0.5),
+            "p95_ms": _percentile(durations, 0.95),
+        }
+    return out
+
+
+def _percentile(sorted_values: list[int], q: float) -> int | None:
+    """Nearest-rank percentile of an ascending list (None when empty)."""
+    if not sorted_values:
+        return None
+    if len(sorted_values) == 1:
+        return sorted_values[0]
+    return int(statistics.quantiles(sorted_values, n=100, method="inclusive")[max(0, min(98, round(q * 100) - 1))])
+
+
 def ask_queue_stats() -> dict[str, int]:
     """Background question load: running (<= workers), queued (waiting for a thread), workers."""
     with _runs_lock:
@@ -234,7 +305,8 @@ class AskQueueFull(RuntimeError):
 
 def _new_entry(kind: str, bid_id: str) -> dict[str, Any]:
     """A fresh registry entry."""
-    return {"kind": kind, "bid_id": bid_id, "status": "running", "error": None, "answer": None}
+    return {"kind": kind, "bid_id": bid_id, "status": "running", "error": None, "answer": None,
+            "started": time.perf_counter(), "duration_ms": None}
 
 
 def _register_run(run_id: str, kind: str, bid_id: str) -> None:
@@ -271,6 +343,12 @@ def _set_run(run_id: str, status: str, error: str | None = None, answer: Answer 
         entry["status"], entry["error"] = status, error
         if answer is not None:
             entry["answer"] = answer
+        if status != "running" and entry.get("started") is not None and entry.get("duration_ms") is None:
+            entry["duration_ms"] = int((time.perf_counter() - entry["started"]) * 1000)
+        kind, bid_id, duration = entry.get("kind") or "extract", entry.get("bid_id"), entry.get("duration_ms")
+    if status != "running":
+        logger.info("run %s kind=%s bid=%s run_id=%s duration_ms=%s%s", status, kind, bid_id or "*", run_id,
+                    duration, f" error={error!r}" if error else "")
 
 
 def run_status(run_id: str) -> RunStatus:
@@ -281,12 +359,13 @@ def run_status(run_id: str) -> RunStatus:
     if entry:
         info = _run_info(run_id, entry)
         return RunStatus(run_id=run_id, bid_id=info.bid_id, status=info.status, steps=steps, kind=info.kind,
-                         answer=entry.get("answer"), error=entry.get("error"))
+                         answer=entry.get("answer"), error=entry.get("error"), summary=summarize_run(steps))
     if not steps:
         raise KeyError(run_id)
     status = "done" if steps[-1].node in _TERMINAL_NODES and steps[-1].error is None else "failed"
     kind = "qa" if any(s.node in ("answer", "validate_answer") for s in steps) else "extract"
-    return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id), status=status, steps=steps, kind=kind)
+    return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id), status=status, steps=steps, kind=kind,
+                     summary=summarize_run(steps))
 
 
 def _bid_of_run(run_id: str) -> str:

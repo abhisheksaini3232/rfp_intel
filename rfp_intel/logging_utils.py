@@ -22,7 +22,7 @@ from typing import Any, Callable
 from pydantic import BaseModel
 
 from rfp_intel.config import settings
-from rfp_intel.schemas import StepLog, Usage
+from rfp_intel.schemas import RunSummary, StepLog, Usage
 
 _SUMMARY_LIMIT = 500
 
@@ -72,6 +72,21 @@ def read_trace(run_id: str) -> list[StepLog]:
         return []
     with open(path, encoding="utf-8") as fh:
         return [StepLog.model_validate_json(line) for line in fh if line.strip()]
+
+
+def summarize_run(steps: list[StepLog]) -> RunSummary:
+    """Totals over the StepLogs of one run (latency is the sum of step latencies)."""
+    calls = [call for step in steps for call in step.tool_calls]
+    return RunSummary(
+        steps=len(steps),
+        latency_ms=sum(s.latency_ms for s in steps),
+        tokens_in=sum(s.tokens_in for s in steps),
+        tokens_out=sum(s.tokens_out for s in steps),
+        cost_usd=round(sum(s.cost_usd for s in steps), 6),
+        llm_calls=sum(1 for c in calls if c.get("kind") == "llm"),
+        searches=sum(1 for c in calls if c.get("kind") == "search"),
+        errors=sum(1 for s in steps if s.error),
+    )
 
 
 def record_tool_call(kind: str, **details: Any) -> None:

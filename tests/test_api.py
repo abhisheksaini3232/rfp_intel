@@ -83,7 +83,8 @@ def test_search_shape_and_bad_config(client):
 
 def test_ask_returns_cited_answer(client):
     body = client.post("/ask", json={"question": "When is the bid due?"}).json()
-    assert set(body) == {"question", "answer", "citations", "confidence", "bids"}
+    assert set(body) == {"question", "answer", "citations", "confidence", "bids", "cached"}
+    assert body["cached"] is False
     assert "July 9, 2024" in body["answer"] and body["citations"] and body["bids"] == [BID]
     assert body["citations"][0]["chunk_id"] == "a:1:0"
 
@@ -299,3 +300,69 @@ def test_run_status_from_trace_infers_question_kind(client, workspace):
     write_step(StepLog(**{**base, "step": 2, "node": "validate_answer", "agent": "Validator"}))
     body = client.get("/runs/old-qa").json()
     assert body["kind"] == "qa" and body["status"] == "done" and body["answer"] is None
+
+
+# ---------------------------------------------------------------- cache, metrics, validation
+
+
+def test_second_identical_question_is_served_from_the_cache(client, monkeypatch):
+    from tests.graph_fakes import ScriptedLLM, install
+
+    scripted = ScriptedLLM()
+    install(monkeypatch, scripted)
+    monkeypatch.setattr(settings.cache, "enabled", True)
+    first = client.post("/ask", json={"question": "When is the bid due?", "bid_ids": [BID]}).json()
+    drafts = scripted.calls.count("AnswerDraft")
+    second = client.post("/ask", json={"question": "when is the bid due?", "bid_ids": [BID]}).json()
+    assert first["cached"] is False and second["cached"] is True
+    assert second["answer"] == first["answer"] and second["question"] == "when is the bid due?"
+    assert scripted.calls.count("AnswerDraft") == drafts                    # no LLM call for the hit
+
+    runtime.get_engine().fingerprint = "fp-2"                               # the bid was re-indexed
+    third = client.post("/ask", json={"question": "When is the bid due?", "bid_ids": [BID]}).json()
+    assert third["cached"] is False and scripted.calls.count("AnswerDraft") == drafts + 1
+
+    body = client.get("/metrics").json()
+    assert body["cache"] == {"enabled": True, "hits": body["cache"]["hits"], "misses": body["cache"]["misses"]}
+    assert body["cache"]["hits"] >= 1 and body["cache"]["misses"] >= 2
+
+    monkeypatch.setattr(settings.cache, "enabled", False)
+    assert client.post("/ask", json={"question": "when is the bid due?", "bid_ids": [BID]}).json()["cached"] is False
+
+
+def test_metrics_report_runs_queue_and_cache(client):
+    run_id = client.post("/extract", json={"bid_id": BID}).json()["run_id"]
+    _wait_for_run(client, run_id)
+    q = client.post("/ask/runs", json={"question": "When is the bid due?", "bid_ids": [BID]}).json()["run_id"]
+    final = _wait_for_run(client, q)
+    assert final["summary"]["steps"] == len(final["steps"]) and final["summary"]["searches"] == 1
+    assert final["summary"]["errors"] == 0 and final["summary"]["latency_ms"] == sum(s["latency_ms"] for s in final["steps"])
+    body = client.get("/metrics").json()
+    assert set(body) == {"runs", "ask_queue", "cache"} and set(body["runs"]) == {"extract", "qa"}
+    assert body["runs"]["extract"]["done"] == 1 and body["runs"]["qa"]["done"] == 1
+    assert body["runs"]["qa"]["p50_ms"] is not None and body["runs"]["qa"]["p95_ms"] >= body["runs"]["qa"]["p50_ms"]
+    assert body["ask_queue"] == {"running": 0, "queued": 0, "workers": settings.api.ask_workers}
+
+
+def test_question_length_is_validated(client):
+    too_long = "x" * (settings.api.max_question_chars + 1)
+    resp = client.post("/ask", json={"question": too_long})
+    assert resp.status_code == 422 and "limit is" in resp.json()["error"]
+    assert client.post("/ask", json={"question": "   "}).status_code == 422
+    assert client.post("/ask/runs", json={"question": too_long}).status_code == 422
+
+
+def test_summarize_run_totals():
+    from rfp_intel.logging_utils import summarize_run
+    from rfp_intel.schemas import StepLog
+
+    base = dict(run_id="r", agent="a", started_at="t", input_summary="", output_summary="")
+    steps = [
+        StepLog(**base, step=1, node="retrieve", latency_ms=100, tool_calls=[{"kind": "search"}, {"kind": "search"}]),
+        StepLog(**base, step=2, node="answer", latency_ms=50, tokens_in=10, tokens_out=5, cost_usd=0.001,
+                tool_calls=[{"kind": "llm"}, {"kind": "draft"}]),
+        StepLog(**base, step=3, node="validate_answer", latency_ms=25, tool_calls=[{"kind": "llm"}], error="boom"),
+    ]
+    summary = summarize_run(steps)
+    assert summary.model_dump() == {"steps": 3, "latency_ms": 175, "tokens_in": 10, "tokens_out": 5, "cost_usd": 0.001,
+                                    "llm_calls": 2, "searches": 2, "errors": 1}

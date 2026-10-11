@@ -22,6 +22,7 @@ from typing import Protocol
 from rfp_intel.config import settings
 from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
 from rfp_intel.schemas import Chunk, IndexStats, SearchFilters, SearchHit
+from rfp_intel.search.answer_cache import AnswerCache, index_fingerprint
 from rfp_intel.search.bm25_store import BM25Store
 from rfp_intel.search.chunker import chunk_document, embed_text
 from rfp_intel.search.embedder import make_embedder
@@ -61,6 +62,7 @@ class SearchEngine:
         self.manifest_path = self.storage_dir / "manifest.json"
         self._vectors: VectorStore | None = None
         self._query_cache: dict[str, list[float]] = {}
+        self._answer_cache: AnswerCache | None = None
 
     @property
     def vectors(self) -> VectorStore:
@@ -78,6 +80,19 @@ class SearchEngine:
                 self._write_manifest(manifest)
         return self._vectors
 
+    @property
+    def answer_cache(self) -> AnswerCache:
+        """The semantic answer cache, in the same Qdrant store as the chunks (opened on first use)."""
+        if self._answer_cache is None:
+            store = self.vectors                      # opens the client and fixes the dimension
+            dim = self._read_manifest().get("_dim") or self.embedder.dim
+            self._answer_cache = AnswerCache(store.client, self.embedder, dim)
+        return self._answer_cache
+
+    def index_fingerprint(self, bids: list[str]) -> str:
+        """Hash of the index state of `bids` (every indexed bid when empty); changes on re-index."""
+        return index_fingerprint(self._read_manifest(), bids)
+
     def warm_up(self) -> None:
         """Load the embedding and re-ranking models now (first use otherwise costs ~30 s)."""
         self.embedder.embed_queries(["warm up"])
@@ -88,6 +103,7 @@ class SearchEngine:
         if self._vectors is not None:
             self._vectors.close()
             self._vectors = None
+        self._answer_cache = None
 
     # ---------------------------------------------------------------- indexing
 

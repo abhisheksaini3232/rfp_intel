@@ -30,6 +30,8 @@ app = typer.Typer(
 )
 eval_app = typer.Typer(help="Run evaluations and write eval/results/.")
 app.add_typer(eval_app, name="eval")
+cache_app = typer.Typer(help="Semantic answer cache (config: cache.enabled, cache.similarity_threshold).")
+app.add_typer(cache_app, name="cache")
 
 console = Console()
 
@@ -192,23 +194,20 @@ def _extract_with_graph(folder: Path) -> None:
 
 
 def _answer(question: str, bids: list[str] | None) -> None:
-    """Run the Q&A graph and print the answer with its citations."""
-    from rfp_intel.agents.graph import run_question
-    from rfp_intel.agents.runtime import close_engine, get_engine
+    """Answer a question (answer cache first, then the Q&A graph) and print it with its citations."""
+    from rfp_intel import services
+    from rfp_intel.agents.runtime import close_engine
 
     try:
-        bid_ids = bids or get_engine().known_bids()
-        state = run_question(question, bid_ids)
+        answer = services.ask(question, bids)
     finally:
         close_engine()
-    answer = state["answer"]
     console.print(f"[bold]Q:[/bold] {answer.question}")
     console.print(f"[bold]A:[/bold] {answer.answer}")
-    console.print(f"confidence={answer.confidence:.2f} bids={', '.join(answer.bids)}")
+    console.print(f"confidence={answer.confidence:.2f} bids={', '.join(answer.bids)}"
+                  + (" [dim](cached)[/dim]" if answer.cached else ""))
     for n, c in enumerate(answer.citations, start=1):
         console.print(f"  [{n}] {c.file} p.{c.page}: {c.quote[:160]!r}")
-    for error in state.get("errors", []):
-        console.print(f"  [yellow]{error}[/yellow]")
 
 
 def _print_record(record) -> None:
@@ -272,6 +271,32 @@ def compare(
 ) -> None:
     """Compare two bids side by side (bonus)."""
     _not_ready("compare", "Phase 9")
+
+
+@cache_app.command("clear")
+def cache_clear() -> None:
+    """Delete every cached answer."""
+    from rfp_intel import services
+    from rfp_intel.agents.runtime import close_engine
+
+    try:
+        removed = services.clear_answer_cache()
+    finally:
+        close_engine()
+    console.print(f"removed {removed} cached answer(s)")
+
+
+@cache_app.command("stats")
+def cache_stats() -> None:
+    """How many answers are cached."""
+    from rfp_intel.agents.runtime import close_engine, get_engine
+
+    try:
+        count = get_engine().answer_cache.count()
+    finally:
+        close_engine()
+    console.print(f"cache enabled={settings.cache.enabled} threshold={settings.cache.similarity_threshold} "
+                  f"answers={count}")
 
 
 @eval_app.command("retrieval")

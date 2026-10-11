@@ -24,6 +24,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Run counts, latency percentiles, question queue and answer-cache counters for this process.
+         */
+        get: operations["metrics_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bids": {
         parameters: {
             query?: never;
@@ -347,6 +367,11 @@ export interface components {
             confidence: number;
             /** Bids */
             bids: string[];
+            /**
+             * Cached
+             * @default false
+             */
+            cached: boolean;
         };
         /**
          * AskQueue
@@ -362,7 +387,7 @@ export interface components {
         };
         /**
          * AskRequest
-         * @description POST /ask body.
+         * @description POST /ask and POST /ask/runs body.
          */
         AskRequest: {
             /** Question */
@@ -447,6 +472,18 @@ export interface components {
             bid_id: string;
             /** Files */
             files: string[];
+        };
+        /**
+         * CacheMetrics
+         * @description Answer cache counters (GET /metrics).
+         */
+        CacheMetrics: {
+            /** Enabled */
+            enabled: boolean;
+            /** Hits */
+            hits: number;
+            /** Misses */
+            misses: number;
         };
         /**
          * Chunk
@@ -616,6 +653,18 @@ export interface components {
             seconds: number;
         };
         /**
+         * Metrics
+         * @description GET /metrics response: what this API process has done since it started.
+         */
+        Metrics: {
+            /** Runs */
+            runs: {
+                [key: string]: components["schemas"]["RunMetrics"];
+            };
+            ask_queue: components["schemas"]["AskQueue"];
+            cache: components["schemas"]["CacheMetrics"];
+        };
+        /**
          * RunInfo
          * @description A background run known to this API process (no steps).
          */
@@ -635,6 +684,22 @@ export interface components {
              * @enum {string}
              */
             kind: "extract" | "qa";
+        };
+        /**
+         * RunMetrics
+         * @description Per-kind run counts and latency percentiles (GET /metrics).
+         */
+        RunMetrics: {
+            /** Running */
+            running: number;
+            /** Done */
+            done: number;
+            /** Failed */
+            failed: number;
+            /** P50 Ms */
+            p50_ms: number | null;
+            /** P95 Ms */
+            p95_ms: number | null;
         };
         /**
          * RunStarted
@@ -669,6 +734,29 @@ export interface components {
             answer?: components["schemas"]["Answer"] | null;
             /** Error */
             error?: string | null;
+            summary?: components["schemas"]["RunSummary"] | null;
+        };
+        /**
+         * RunSummary
+         * @description Totals over a run's StepLogs.
+         */
+        RunSummary: {
+            /** Steps */
+            steps: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Llm Calls */
+            llm_calls: number;
+            /** Searches */
+            searches: number;
+            /** Errors */
+            errors: number;
         };
         /**
          * SearchHit
@@ -775,6 +863,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    metrics_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Metrics"];
                 };
             };
         };

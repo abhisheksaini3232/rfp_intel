@@ -115,6 +115,11 @@ export function ChatMessage({ entry }: { entry: ChatEntry }) {
           <Badge variant="outline" className={cn("mr-1", confidenceBadgeClass(answer.confidence))}>
             confidence {Math.round(answer.confidence * 100)}%
           </Badge>
+          {answer.cached && (
+            <Badge variant="outline" className="text-muted-foreground" title="Served from the answer cache">
+              cached
+            </Badge>
+          )}
           {answer.bids.map((b) => (
             <Badge key={b} variant="secondary">{b}</Badge>
           ))}

@@ -16,12 +16,12 @@ const step = (node: string) =>
   ({ run_id: "r1", step: 1, agent: "x", node, started_at: "t", input_summary: "", tool_calls: [], output_summary: "",
      tokens_in: 0, tokens_out: 0, cost_usd: 0, latency_ms: 1, error: null }) as RunStatus["steps"][number];
 
-const running: RunStatus = { run_id: "r1", bid_id: "Bid1", status: "running", steps: [step("orchestrate")], kind: "qa", answer: null, error: null };
+const running: RunStatus = { run_id: "r1", bid_id: "Bid1", status: "running", steps: [step("orchestrate")], kind: "qa", answer: null, error: null, summary: null };
 const done: RunStatus = {
   ...running,
   status: "done",
   steps: [step("orchestrate"), step("retrieve"), step("answer"), step("validate_answer")],
-  answer: { question: "q", answer: "July 9, 2024 [1]", citations: [], confidence: 0.9, bids: ["Bid1"] },
+  answer: { question: "q", answer: "July 9, 2024 [1]", citations: [], confidence: 0.9, bids: ["Bid1"], cached: false },
 };
 
 let client: QueryClient;
