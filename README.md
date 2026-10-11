@@ -387,7 +387,7 @@ Mapped to the assignment brief:
 | Retrieval evaluation report (question set, Recall@k / MRR per config) | [eval/results/retrieval.md](eval/results/retrieval.md) (questions in `eval/retrieval_questions.jsonl`) |
 | Sample Q&A log (>= 10 questions) | [eval/qa_log.md](eval/qa_log.md) (12 cited answers) |
 | Agent trace (one full extraction run) | [logs/example_trace.jsonl](logs/example_trace.jsonl) |
-| Demo video | script in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md); recording to be attached to the submission |
+| Demo video | scene-by-scene guide with screenshots in [docs/DEMO_VIDEO_GUIDE.pdf](docs/DEMO_VIDEO_GUIDE.pdf) (script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)); recording to be attached to the submission |
 | Assumptions and known limitations | next section and [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) (numbered per phase) |
 | Requirements checklist | [docs/CHECKLIST.md](docs/CHECKLIST.md); testing guide [docs/TESTING.md](docs/TESTING.md); extraction eval [eval/results/extraction.md](eval/results/extraction.md); smoke test [eval/results/smoke_e2e.md](eval/results/smoke_e2e.md) |
 
