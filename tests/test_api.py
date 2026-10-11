@@ -338,7 +338,7 @@ def test_metrics_report_runs_queue_and_cache(client):
     assert final["summary"]["steps"] == len(final["steps"]) and final["summary"]["searches"] == 1
     assert final["summary"]["errors"] == 0 and final["summary"]["latency_ms"] == sum(s["latency_ms"] for s in final["steps"])
     body = client.get("/metrics").json()
-    assert set(body) == {"runs", "ask_queue", "cache"} and set(body["runs"]) == {"extract", "qa"}
+    assert set(body) == {"runs", "ask_queue", "cache"} and set(body["runs"]) == {"extract", "qa", "compare", "go_no_go"}
     assert body["runs"]["extract"]["done"] == 1 and body["runs"]["qa"]["done"] == 1
     assert body["runs"]["qa"]["p50_ms"] is not None and body["runs"]["qa"]["p95_ms"] >= body["runs"]["qa"]["p50_ms"]
     assert body["ask_queue"] == {"running": 0, "queued": 0, "workers": settings.api.ask_workers}

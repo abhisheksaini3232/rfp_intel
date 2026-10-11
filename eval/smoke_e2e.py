@@ -201,6 +201,10 @@ class Smoke:
         started = self.post("/ask/runs", {"question": "Is a pre-bid meeting required?", "bid_ids": self.bids[:1]}, expect=202)
         body = self.wait_run(started["run_id"])
         assert body["kind"] == "qa" and body["status"] == "done" and body["answer"], body.get("error")
+        if body["answer"]["cached"]:
+            # A repeated smoke run meets its own earlier answer in the semantic cache: no graph, no steps.
+            assert not body["steps"], "a cached answer must not run the graph"
+            return "served from the answer cache (no graph steps); run `python main.py cache clear` for a cold run"
         assert body["summary"] and body["steps"], "no summary / steps"
         nodes = [s["node"] for s in body["steps"]]
         assert "retrieve" in nodes and "answer" in nodes, nodes

@@ -215,6 +215,9 @@ def test_api_compare_and_go_no_go(workspace):
         assert body["bid_ids"] == ["BidT", "BidU"] and len(body["rows"]) == len(field_names())
         assert client.get("/compare").json()["run_id"] == body["run_id"]
         assert client.get(f"/runs/{body['run_id']}").json()["kind"] == "compare"
+        listed = {r["run_id"]: r for r in client.get("/runs").json()}
+        assert listed[body["run_id"]]["kind"] == "compare" and listed[body["run_id"]]["bid_id"] == "BidT,BidU"
+        assert client.get(f"/runs/{body['run_id']}").json()["bid_id"] == "BidT,BidU"
 
         assert client.get("/bids/BidT/go-no-go").status_code == 404
         assert client.post("/bids/Nope/go-no-go").status_code == 404
@@ -222,3 +225,18 @@ def test_api_compare_and_go_no_go(workspace):
         assert report["recommendation"] == "review" and len(report["criteria"]) == len(load_capabilities().criteria)
         assert client.get("/bids/BidT/go-no-go").json()["run_id"] == report["run_id"]
         assert client.get(f"/runs/{report['run_id']}").json()["kind"] == "go_no_go"
+        assert client.get(f"/runs/{report['run_id']}").json()["bid_id"] == "BidT"
+        assert client.get("/metrics").json()["runs"]["go_no_go"]["done"] == 1
+
+
+def test_run_status_from_trace_resolves_bid_ids(workspace):
+    cmp = services.compare_bids(["BidT", "BidU"])
+    gng = services.assess_go_no_go("BidU")
+    services._runs.clear()
+    assert services.run_status(cmp.run_id).bid_id == "BidT,BidU"
+    later = services.compare_bids(["BidU", "BidT"])          # overwrites outputs/comparison.json
+    services._runs.clear()
+    assert services.run_status(cmp.run_id).bid_id == "BidT,BidU"
+    assert services.run_status(later.run_id).bid_id == "BidU,BidT"
+    assert services.run_status(gng.run_id).bid_id == "BidU"
+    assert services.run_status(gng.run_id).kind == "go_no_go"

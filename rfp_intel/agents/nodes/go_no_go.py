@@ -89,7 +89,7 @@ def judge(record: BidRecord, caps: Capabilities) -> tuple[list[CriterionResult],
             continue
         status, reason = verdicts.get(crit.id, ("unknown", error or "the LLM returned no verdict for this criterion"))
         results.append(_result(crit, status, reason, record))
-    record_tool_call("verdicts", asked=[c.id for c in to_ask], rule_decided=list(decided),
+    record_tool_call("verdicts", bid_id=record.bid_id, asked=[c.id for c in to_ask], rule_decided=list(decided),
                      statuses={r.criterion: r.status for r in results})
     return results, error
 

@@ -236,7 +236,7 @@ def metrics() -> dict[str, Any]:
         entries = [dict(e) for e in _runs.values()]
     out: dict[str, Any] = {"runs": {}, "ask_queue": ask_queue_stats(),
                            "cache": {"enabled": settings.cache.enabled, "hits": _cache_hits, "misses": _cache_misses}}
-    for kind in ("extract", "qa"):
+    for kind in ("extract", "qa", "compare", "go_no_go"):
         mine = [e for e in entries if (e.get("kind") or "extract") == kind]
         durations = sorted(int(e["duration_ms"]) for e in mine if e.get("duration_ms") is not None)
         out["runs"][kind] = {
@@ -366,7 +366,7 @@ def run_status(run_id: str) -> RunStatus:
         raise KeyError(run_id)
     status = "done" if steps[-1].node in _TERMINAL_NODES and steps[-1].error is None else "failed"
     kind = _kind_of_steps(steps)
-    return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id), status=status, steps=steps, kind=kind,
+    return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id, kind, steps), status=status, steps=steps, kind=kind,
                      summary=summarize_run(steps))
 
 
@@ -380,8 +380,20 @@ def _kind_of_steps(steps: list) -> str:
     return "qa" if nodes & {"answer", "validate_answer"} else "extract"
 
 
-def _bid_of_run(run_id: str) -> str:
-    """Bid whose saved record came from this run (empty when unknown)."""
+def _bid_of_run(run_id: str, kind: str = "extract", steps: list | None = None) -> str:
+    """Bid(s) whose saved output came from this run (empty when unknown).
+
+    Comparison and go/no-go runs are resolved from the ids their node recorded
+    in the trace (`outputs/comparison.json` only keeps the latest comparison).
+    """
+    if kind in ("compare", "go_no_go"):
+        for step in steps or []:
+            for call in step.tool_calls:
+                if kind == "compare" and call.get("bid_ids"):
+                    return ",".join(str(b) for b in call["bid_ids"])
+                if kind == "go_no_go" and call.get("bid_id"):
+                    return str(call["bid_id"])
+        return ""
     out_dir = settings.path("outputs_dir")
     if not out_dir.is_dir():
         return ""
@@ -511,10 +523,19 @@ def compare_bids(bid_ids: list[str], run_id: str | None = None) -> ComparisonRep
     for bid_id in ids:
         if get_record(bid_id) is None:
             raise FileNotFoundError(f"no extraction record for {bid_id!r}; run the extraction first")
-    state = run_comparison(ids, run_id=run_id)
+    run_id = run_id or new_run_id()
+    _register_run(run_id, "compare", ",".join(ids))
+    try:
+        state = run_comparison(ids, run_id=run_id)
+    except Exception as exc:  # noqa: BLE001 - mark the run, then re-raise
+        _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}")
+        raise
     report = state.get("comparison")
     if report is None:
-        raise RuntimeError("comparison failed: " + ("; ".join(state.get("errors", [])) or "no report produced"))
+        error = "comparison failed: " + ("; ".join(state.get("errors", [])) or "no report produced")
+        _set_run(run_id, "failed", error)
+        raise RuntimeError(error)
+    _set_run(run_id, "done")
     return report
 
 
@@ -537,10 +558,19 @@ def assess_go_no_go(bid_id: str, run_id: str | None = None) -> GoNoGoReport:
     """
     if get_record(bid_id) is None:
         raise FileNotFoundError(f"no extraction record for {bid_id!r}; run the extraction first")
-    state = run_go_no_go(bid_id, run_id=run_id)
+    run_id = run_id or new_run_id()
+    _register_run(run_id, "go_no_go", bid_id)
+    try:
+        state = run_go_no_go(bid_id, run_id=run_id)
+    except Exception as exc:  # noqa: BLE001 - mark the run, then re-raise
+        _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}")
+        raise
     report = state.get("go_no_go")
     if report is None:
-        raise RuntimeError("go/no-go failed: " + ("; ".join(state.get("errors", [])) or "no report produced"))
+        error = "go/no-go failed: " + ("; ".join(state.get("errors", [])) or "no report produced")
+        _set_run(run_id, "failed", error)
+        raise RuntimeError(error)
+    _set_run(run_id, "done")
     return report
 
 

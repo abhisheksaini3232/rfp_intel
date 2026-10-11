@@ -155,5 +155,5 @@ def compare(state: dict) -> dict:
     report = ComparisonReport(bid_ids=bid_ids, rows=rows, narrative=narrative, highlights=highlights,
                               generated_at=now_iso(), run_id=state.get("run_id", ""))
     write_outputs(report)
-    record_tool_call("report", rows=len(rows), differing=sum(r.differs for r in rows))
+    record_tool_call("report", bid_ids=list(bid_ids), rows=len(rows), differing=sum(r.differs for r in rows))
     return {"comparison": report, "errors": [error] if error else []}

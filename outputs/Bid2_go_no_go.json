@@ -112,7 +112,7 @@
       "label": "Customer in a served region",
       "status": "met",
       "critical": false,
-      "reason": "The issuing organization is \"State of Maryland Treasurer's Office,\" and Maryland is in the company's served regions. The contact address also shows Annapolis, MD.",
+      "reason": "The issuing organization is the \"State of Maryland Treasurer's Office,\" and the contact info includes Maryland phone numbers. Maryland is in the company's served regions.",
       "fields": [
         "company_name",
         "contact_info",
@@ -160,9 +160,9 @@
     {
       "criterion": "contract_term",
       "label": "Contract term within policy",
-      "status": "met",
+      "status": "unknown",
       "critical": false,
-      "reason": "The bid says proposals/quotes must be valid for at least 90 days after the due date, which is a proposal validity period rather than a contract term. No initial contract term longer than 3 years is stated.",
+      "reason": "The evidence says only \"Proposals/quotes must be valid for at least 90 days after the set due date\" and notes that no contract duration is stated. That is a proposal validity period, not an initial contract term.",
       "fields": [
         "Term of Bid"
       ],
@@ -180,7 +180,7 @@
       "label": "Submission method supported",
       "status": "met",
       "critical": false,
-      "reason": "The bid requires submission through eMMA, which is an electronic portal. The company supports \"electronic_portal\".",
+      "reason": "The bid requires submission through \"eMaryland Marketplace Advantage (eMMA) e-Procurement system,\" which is an electronic portal. The company supports \"electronic_portal\".",
       "fields": [
         "Bid Submission Type"
       ],
@@ -198,7 +198,7 @@
       "label": "Contract vehicle accessible",
       "status": "unknown",
       "critical": false,
-      "reason": "The bid references \"Desktop, Laptop and Tablet 2015 Master Contract, 060B5400007,\" but this vehicle is not clearly identifiable as one of the company's listed memberships or state master contracts. The capability profile does not show that it holds this specific contract.",
+      "reason": "The bid references \"Desktop, Laptop and Tablet 2015 Master Contract, 060B5400007,\" but that vehicle is not clearly identifiable as one of the company's listed memberships or state master contracts. The evidence does not show the company holds it.",
       "fields": [
         "Contract or Cooperative to use"
       ],
@@ -212,10 +212,10 @@
       ]
     }
   ],
-  "summary": "Needs review: 6 of 7 criteria met. Unknown (not stated in the documents or undecidable): Contract vehicle accessible.",
-  "met": 6,
+  "summary": "Needs review: 5 of 7 criteria met. Unknown (not stated in the documents or undecidable): Contract term within policy; Contract vehicle accessible.",
+  "met": 5,
   "not_met": 0,
-  "unknown": 1,
-  "generated_at": "2026-10-11T09:46:12.387+00:00",
-  "run_id": "20261011T094609Z-d73881"
+  "unknown": 2,
+  "generated_at": "2026-10-11T10:48:30.614+00:00",
+  "run_id": "20261011T104827Z-13b4b7"
 }

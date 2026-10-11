@@ -7,7 +7,7 @@
       "label": "Authorized for the required manufacturer(s)",
       "status": "met",
       "critical": true,
-      "reason": "The bid names branded products/manufacturers including Dell, HP, Lenovo, Apple, Acer, ASUS, Samsung, and Google. All of these are in the company's authorized_manufacturers list.",
+      "reason": "The bid names branded products from Dell, HP, Lenovo, Apple, Acer, ASUS, Samsung, and Google, and all are in the authorized_manufacturers list. No other manufacturer is required by the extracted values.",
       "fields": [
         "MFG for Registration",
         "Model_no",
@@ -88,7 +88,7 @@
       "label": "Delivery window achievable",
       "status": "met",
       "critical": true,
-      "reason": "Delivery starts \"in September of 2024\" and the bid requires deployment services including white glove services, asset tagging/reporting, etching, software installation, device deployment and setup. The company capability includes installation_services and imaging_and_asset_tagging.",
+      "reason": "Delivery starts in September 2024, and the company offers installation services plus imaging and asset tagging. The required white-glove deployment includes asset decaling/reporting and etching, which fits the offered services.",
       "fields": [
         "Delivery Date",
         "Installation"
@@ -107,22 +107,16 @@
           "quote": "All deliveries and deployments must incorporate white glove services, which include asset decaling, asset\nreporting, etching, and delivery to varied locations."
         },
         {
-          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
-          "page": 7,
-          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:7:21",
-          "quote": "These\nservices include (a) software installation, (b) asset tagging and etching, (c) device deployment and setup,\nand (d) asset control reporting."
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 1,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:1:5",
+          "quote": "Answer: No, Dallas ISD will only require etching on Laptops."
         },
         {
           "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
           "page": 4,
           "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:4:32",
-          "quote": "For Windows devices, autopilot is required. For Chromebooks, enrollment in\nGoogle Management is required."
-        },
-        {
-          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
-          "page": 1,
-          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:1:5",
-          "quote": "Answer: No, Dallas ISD will only require etching on Laptops."
+          "quote": "Answer: For Windows devices, autopilot is required. For Chromebooks, enrollment in\nGoogle Management is required."
         }
       ]
     },
@@ -142,7 +136,7 @@
       "label": "Customer in a served region",
       "status": "met",
       "critical": false,
-      "reason": "The company profile says it serves public-sector customers, and the bid/company contact values point to Dallas Independent School District with Dallas-area contact details. Texas is a served region.",
+      "reason": "The issuing organization is \"Dallas Independent School District,\" and Dallas is in Texas, which is a served region. The contact info also references Dallas ISD procurement contacts.",
       "fields": [
         "company_name",
         "contact_info",
@@ -162,16 +156,16 @@
           "quote": "Buyer ALZATE, JASMINE Email JALZATE@dallasisd.org"
         },
         {
-          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
-          "page": 61,
-          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:61:156",
-          "quote": "Please direct all procurement questions to Sherri Williams at shewilli@dallasisd.org."
-        },
-        {
           "file": "Student and Staff Computing Devices __SOURCING #168884__ - Bid Information - {3} _ BidNet Direct.html",
           "page": 1,
           "chunk_id": "e28bc259e5f75c155ff1067a7aa1750f6191073d:1:0",
           "quote": "Contact Information: Procurement Services 972-925-3700 ProcurementCS@dallasisd.org"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 61,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:61:156",
+          "quote": "Please direct all procurement questions to Sherri Williams at shewilli@dallasisd.org."
         },
         {
           "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
@@ -183,7 +177,7 @@
           "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
           "page": 9,
           "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:9:24",
-          "quote": "Manual submissions must be delivered to the Procurement Services Department, in a\nsealed envelope by the date and time stated. No fax or email submissions will be accepted. Only one\nformat is needed. The manual submission shall consist of one (1) original hard copy."
+          "quote": "our electronic system. Please register with the\niSupplier portal https://www.dallasisd.org/domain/143 This process takes up to a week, Dallas ISD asks the\nvendor to please register as early as possible to allow time for electronic responses. Submissions may be\nsubmitted manually.\nManual submissions "
         }
       ]
     },
@@ -192,7 +186,7 @@
       "label": "Contract term within policy",
       "status": "met",
       "critical": false,
-      "reason": "The term is \"Three (3) year agreement\" with renewal options. The initial term matches the max_initial_term_years of 3.",
+      "reason": "The term is \"Three (3) year agreement\" with renewal options. The initial term is exactly within the 3-year maximum.",
       "fields": [
         "Term of Bid"
       ],
@@ -210,7 +204,7 @@
       "label": "Submission method supported",
       "status": "met",
       "critical": false,
-      "reason": "The bid allows \"Electronic submission via the iSupplier portal\" and the company supports electronic_portal submissions.",
+      "reason": "The bid allows \"Electronic submission via the iSupplier portal\" and also permits manual sealed-paper submissions. The company supports electronic portal submission and sealed paper.",
       "fields": [
         "Bid Submission Type"
       ],
@@ -225,7 +219,7 @@
           "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
           "page": 9,
           "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:9:24",
-          "quote": "Manual submissions must be delivered to the Procurement Services Department, in a\nsealed envelope by the date and time stated. No fax or email submissions will be accepted. Only one\nformat is needed. The manual submission shall consist of one (1) original hard copy."
+          "quote": "our electronic system. Please register with the\niSupplier portal https://www.dallasisd.org/domain/143 This process takes up to a week, Dallas ISD asks the\nvendor to please register as early as possible to allow time for electronic responses. Submissions may be\nsubmitted manually.\nManual submissions "
         }
       ]
     },
@@ -234,7 +228,7 @@
       "label": "Contract vehicle accessible",
       "status": "unknown",
       "critical": false,
-      "reason": "The bid references \"Educational Purchasing Cooperative of North Texas (EPCNT); Central Texas Purchasing Alliance (CTPA),\" but these are not clearly identifiable as one of the company's listed cooperative memberships.",
+      "reason": "The bid requires use of \"Educational Purchasing Cooperative of North Texas (EPCNT); Central Texas Purchasing Alliance (CTPA),\" but these are not clearly identifiable as memberships in the capability profile. The profile only lists other cooperatives.",
       "fields": [
         "Contract or Cooperative to use"
       ],
@@ -258,6 +252,6 @@
   "met": 6,
   "not_met": 0,
   "unknown": 1,
-  "generated_at": "2026-10-11T09:46:45.530+00:00",
-  "run_id": "20261011T094640Z-a231fe"
+  "generated_at": "2026-10-11T10:48:46.555+00:00",
+  "run_id": "20261011T104843Z-566f02"
 }
