@@ -10,7 +10,7 @@ export const IDLE_POLL_INTERVAL_MS = 5000;
 export const runsQueryKey = ["runs"] as const;
 
 function isFinished(status: RunStatus | undefined): boolean {
-  return status?.status === "done" || status?.status === "failed";
+  return status?.status === "done" || status?.status === "failed" || status?.status === "cancelled";
 }
 
 /** Poll one run every 1.5 s until it is done or failed. */
@@ -97,6 +97,13 @@ export function useExtractRun(bidId: string) {
     void queryClient.invalidateQueries({ queryKey: runsQueryKey });
   }, [finished, settled, bidId, queryClient]);
 
+  // Asks the server to stop; the run keeps reporting until the node in flight
+  // finishes, then its status becomes "cancelled" and polling stops.
+  const cancel = useMutation({
+    mutationFn: () => api.cancelRun(runId as string),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: runsQueryKey }),
+  });
+
   const reset = useCallback(() => {
     setRunId(undefined);
     setSettled(false);
@@ -117,6 +124,9 @@ export function useExtractRun(bidId: string) {
     /** Another bid's run holds the extraction lock. */
     busyWith,
     finished,
+    /** Ask the running extraction to stop at its next step. */
+    cancel: cancel.mutate,
+    cancelling: cancel.isPending,
     reset,
   };
 }

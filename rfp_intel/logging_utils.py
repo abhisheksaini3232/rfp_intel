@@ -146,6 +146,42 @@ def _next_step(run_id: str) -> int:
         return _step_counters[run_id]
 
 
+# ---------------------------------------------------------------- cancellation
+
+class RunCancelled(Exception):
+    """Raised inside a graph node when its run was asked to stop."""
+
+    def __init__(self, run_id: str) -> None:
+        self.run_id = run_id
+        super().__init__(f"run {run_id} was cancelled")
+
+
+_cancelled: set[str] = set()
+
+
+def request_cancel(run_id: str) -> None:
+    """Ask a run to stop at its next node boundary.
+
+    A run is a thread, so it cannot be killed: `log_step` checks this flag
+    before each node and raises `RunCancelled`, which unwinds the graph. Work
+    already in flight inside the current node finishes first.
+    """
+    with _lock:
+        _cancelled.add(run_id)
+
+
+def is_cancel_requested(run_id: str) -> bool:
+    """Has this run been asked to stop?"""
+    with _lock:
+        return run_id in _cancelled
+
+
+def clear_cancel(run_id: str) -> None:
+    """Forget a run's cancel flag once it has stopped."""
+    with _lock:
+        _cancelled.discard(run_id)
+
+
 def log_step(agent: str, node: str | None = None) -> Callable:
     """Wrap a graph node `(state) -> dict` with tracing and error capture.
 
@@ -159,16 +195,27 @@ def log_step(agent: str, node: str | None = None) -> Callable:
 
         @functools.wraps(fn)
         def wrapper(state: dict, *args: Any, **kwargs: Any) -> dict:
+            # Checked before the try below on purpose: that block turns every
+            # exception into a logged error and lets the graph carry on, which
+            # is right for a failing node and wrong for a cancelled run.
+            if is_cancel_requested(str(state.get("run_id") or "")):
+                raise RunCancelled(str(state.get("run_id")))
             recorder = StepRecorder()
             token = _current.set(recorder)
             started_at, t0 = now_iso(), time.perf_counter()
             error: str | None = None
             try:
                 result = dict(fn(state, *args, **kwargs) or {})
+            except RunCancelled:
+                # A stop request must unwind the graph, not become a logged
+                # error that the run carries on past.
+                _current.reset(token)
+                raise
             except Exception as exc:  # noqa: BLE001 - a node must never crash the run
                 error = f"{type(exc).__name__}: {exc}"
                 result = {"errors": [f"{node_name}: {error}"]}
-            finally:
+                _current.reset(token)
+            else:
                 _current.reset(token)
 
             run_id = str(state.get("run_id") or "no-run")

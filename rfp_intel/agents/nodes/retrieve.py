@@ -18,7 +18,7 @@ import re
 
 from rfp_intel.agents.runtime import get_engine
 from rfp_intel.config import FieldSpec, load_fields, settings
-from rfp_intel.logging_utils import log_step, record_tool_call
+from rfp_intel.logging_utils import RunCancelled, is_cancel_requested, log_step, record_tool_call
 from rfp_intel.schemas import (
     BidRecord,
     DocType,
@@ -184,7 +184,13 @@ def retrieve(state: dict) -> dict:
     widened = bool(state.get("widened"))
     only = list(state.get("to_retry") or []) if widened and task.group != "qa" else None
     evidence = {}
+    run_id = str(state.get("run_id") or "")
     for request in build_requests(task, widened, only):
+        # Retrieval is the slowest node (one re-ranked search per field), so a
+        # stop request is honoured between fields rather than only between
+        # nodes; otherwise "Stop" could take minutes to take effect.
+        if is_cancel_requested(run_id):
+            raise RunCancelled(run_id)
         evidence[request.field_or_question] = run_request(request)
     return {"evidence": evidence}
 

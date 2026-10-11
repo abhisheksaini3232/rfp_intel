@@ -117,6 +117,9 @@ export const api = {
   extract: (bidId: string) =>
     request<ExtractResponse>("/extract", jsonInit("POST", { bid_id: bidId })),
   getRun: (runId: string) => request<RunStatus>(`/runs/${encodeURIComponent(runId)}`),
+  /** Ask a running run to stop at its next step; 409 when it already finished. */
+  cancelRun: (runId: string) =>
+    request<RunInfo>(`/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
   listRuns: () => request<RunInfo[]>("/runs"),
   search: (params: SearchParams) =>
     request<SearchResponse>(`/search${toQuery({ ...params })}`),

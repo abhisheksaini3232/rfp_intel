@@ -29,7 +29,7 @@ export const SEARCH_CONFIGS: SearchConfig[] = ["vector", "hybrid", "hybrid_reran
 
 export type FieldStatus = "ok" | "not_found" | "failed";
 
-export type RunState = "running" | "done" | "failed";
+export type RunState = "running" | "done" | "failed" | "cancelled";
 
 export interface Citation {
   file: string;

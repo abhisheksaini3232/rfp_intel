@@ -24,7 +24,8 @@ from rfp_intel.agents.graph import run_comparison, run_extraction, run_go_no_go,
 from rfp_intel.agents.runtime import get_engine
 from rfp_intel.config import ROOT, settings
 from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
-from rfp_intel.logging_utils import new_run_id, read_trace, summarize_run
+from rfp_intel.logging_utils import (RunCancelled, clear_cancel, is_cancel_requested, new_run_id, read_trace,
+                                     request_cancel, summarize_run)
 from rfp_intel.schemas import (
     Answer,
     BidDetail,
@@ -191,12 +192,45 @@ def start_extraction(bid_id: str) -> str:
             extract(bid_id, run_id=run_id)
             _set_run(run_id, "done")
         except Exception as exc:  # noqa: BLE001 - a failed run is reported, never raised
-            _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}")
+            _finish_interrupted(run_id, exc)
         finally:
+            clear_cancel(run_id)
             _extract_lock.release()
 
     threading.Thread(target=worker, name=f"extract-{run_id}", daemon=True).start()
     return run_id
+
+
+def _finish_interrupted(run_id: str, exc: BaseException) -> None:
+    """Mark a run that ended on an exception as cancelled or failed.
+
+    LangGraph can wrap a node's exception, so the cancel flag is the source of
+    truth rather than the exception type alone.
+    """
+    if isinstance(exc, RunCancelled) or is_cancel_requested(run_id):
+        _set_run(run_id, "cancelled", "stopped on request")
+        logger.info("run %s cancelled on request", run_id)
+    else:
+        _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}")
+
+
+def cancel_run(run_id: str) -> RunInfo:
+    """Ask a running run to stop at its next node boundary.
+
+    Returns the run's info. KeyError when the run is unknown to this process,
+    RuntimeError when it has already finished.
+    """
+    with _runs_lock:
+        entry = _runs.get(run_id)
+        if entry is None:
+            raise KeyError(run_id)
+        status = entry["status"]
+    if status != "running":
+        raise RuntimeError(f"run {run_id} is already {status}")
+    request_cancel(run_id)
+    logger.info("cancel requested for run %s", run_id)
+    with _runs_lock:
+        return _run_info(run_id, _runs[run_id])
 
 
 def start_indexing(folder: Path) -> str:
@@ -256,9 +290,14 @@ def start_question(question: str, bid_ids: list[str] | None = None) -> str:
         try:
             answer = ask(question, bid_ids, run_id=run_id)
         except Exception as exc:  # noqa: BLE001 - a failed run is reported, never raised
-            _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}", only_if_running=True)
+            if isinstance(exc, RunCancelled) or is_cancel_requested(run_id):
+                _set_run(run_id, "cancelled", "stopped on request", only_if_running=True)
+            else:
+                _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}", only_if_running=True)
         else:
             _set_run(run_id, "done", answer=answer, only_if_running=True)
+        finally:
+            clear_cancel(run_id)
 
     def watchdog() -> None:
         _set_run(run_id, "failed", f"timed out after {settings.agents.qa_timeout_s:g} s", only_if_running=True)

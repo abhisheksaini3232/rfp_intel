@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Play, Square, Trash2 } from "lucide-react";
 import type { AddendumChange, BidRecord, DocumentSummary, FieldValue } from "@/api/types";
 import { CitationChip } from "@/components/CitationChip";
 import { FieldsTable } from "@/components/FieldsTable";
@@ -81,6 +81,7 @@ export function BidDetailPage() {
   useEffect(() => {
     if (!run.finished || !run.status) return;
     if (run.status.status === "done") toast.success(`Extraction finished for ${bidId}`);
+    else if (run.status.status === "cancelled") toast.info(`Extraction stopped for ${bidId}`);
     else toast.error(`Extraction failed for ${bidId}`);
   }, [run.finished, run.status, bidId]);
 
@@ -156,6 +157,18 @@ export function BidDetailPage() {
                   Full trace <ArrowRight />
                 </Link>
               </Button>
+              {run.running && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => run.cancel()}
+                  disabled={run.cancelling}
+                  title="Stop after the step that is currently running"
+                >
+                  {run.cancelling ? <Loader2 className="animate-spin" /> : <Square />}
+                  {run.cancelling ? "Stopping..." : "Stop"}
+                </Button>
+              )}
               {run.finished && (
                 <Button variant="ghost" size="sm" onClick={run.reset}>
                   Dismiss

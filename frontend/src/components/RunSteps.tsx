@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Square } from "lucide-react";
 import type { RunKind, RunState, StepLog } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { estimateRun, formatSeconds, formatStepSeconds } from "@/lib/runEstimate";
@@ -91,6 +91,13 @@ function StatusPill({ status }: { status: RunState }) {
     return (
       <Badge variant="destructive" className="gap-1">
         <AlertCircle className="h-3 w-3" /> failed
+      </Badge>
+    );
+  }
+  if (status === "cancelled") {
+    return (
+      <Badge variant="secondary" className="gap-1">
+        <Square className="h-3 w-3" /> stopped
       </Badge>
     );
   }

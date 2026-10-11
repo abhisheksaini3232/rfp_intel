@@ -295,6 +295,23 @@ def run(run_id: str) -> RunStatus:
         raise HTTPException(404, f"unknown run {run_id!r}") from exc
 
 
+@app.post("/runs/{run_id}/cancel", response_model=RunInfo)
+def cancel_run(run_id: str) -> RunInfo:
+    """Ask a running run to stop.
+
+    The run is a thread, so it stops at its next node boundary rather than
+    instantly: the node in flight finishes, then the graph unwinds and the run
+    is reported as `cancelled`. 404 when this process does not know the run,
+    409 when it has already finished.
+    """
+    try:
+        return services.cancel_run(run_id)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown run {run_id!r}") from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
 @app.get("/search", response_model=SearchResponse)
 def search(q: str, bid_id: str | None = None, doc_type: str | None = None, addendum: int | None = None,
            top_k: int | None = None, config: str | None = None) -> SearchResponse:

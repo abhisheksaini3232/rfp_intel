@@ -414,7 +414,7 @@ class RunStatus(BaseModel):
 
     run_id: str
     bid_id: str                          # qa runs: the bids in scope joined with ","; "" for all
-    status: Literal["running", "done", "failed"]
+    status: Literal["running", "done", "failed", "cancelled"]
     steps: list[StepLog]
     kind: RunKind = "extract"
     answer: Answer | None = None
@@ -427,7 +427,7 @@ class RunInfo(BaseModel):               # GET /runs row
 
     run_id: str
     bid_id: str
-    status: Literal["running", "done", "failed"]
+    status: Literal["running", "done", "failed", "cancelled"]
     kind: RunKind = "extract"
 
 
