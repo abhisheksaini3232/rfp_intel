@@ -33,7 +33,8 @@ _step_counters: dict[str, int] = defaultdict(int)
 class StepRecorder:
     """Collects tool calls and LLM usage for the node currently running."""
 
-    def __init__(self) -> None:
+    def __init__(self, run_id: str = "") -> None:
+        self.run_id = run_id
         self.tool_calls: list[dict] = []
         self.usage = Usage()
 
@@ -182,6 +183,18 @@ def clear_cancel(run_id: str) -> None:
         _cancelled.discard(run_id)
 
 
+def raise_if_cancelled() -> None:
+    """Raise RunCancelled when the node currently running was asked to stop.
+
+    `llm.py` calls this before every provider request, so a stop request takes
+    effect within one in-flight call instead of waiting for the whole node.
+    Outside a node (CLI helpers, tests without a recorder) it does nothing.
+    """
+    recorder = _current.get()
+    if recorder is not None and recorder.run_id and is_cancel_requested(recorder.run_id):
+        raise RunCancelled(recorder.run_id)
+
+
 def log_step(agent: str, node: str | None = None) -> Callable:
     """Wrap a graph node `(state) -> dict` with tracing and error capture.
 
@@ -200,7 +213,7 @@ def log_step(agent: str, node: str | None = None) -> Callable:
             # is right for a failing node and wrong for a cancelled run.
             if is_cancel_requested(str(state.get("run_id") or "")):
                 raise RunCancelled(str(state.get("run_id")))
-            recorder = StepRecorder()
+            recorder = StepRecorder(str(state.get("run_id") or ""))
             token = _current.set(recorder)
             started_at, t0 = now_iso(), time.perf_counter()
             error: str | None = None

@@ -9,7 +9,7 @@ from rfp_intel.agents.baseline import not_found_value, value_text
 from rfp_intel.agents.rules import format_datetime
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import field_names, load_fields, settings
-from rfp_intel.logging_utils import log_step, now_iso
+from rfp_intel.logging_utils import RunCancelled, log_step, now_iso
 from rfp_intel.schemas import AddendumChange, BidRecord, Citation, FieldValue
 
 SUMMARY_FIELD = "Bid Summary"
@@ -26,6 +26,8 @@ def summarize(bid_id: str, values: dict[str, FieldValue]) -> FieldValue:
     prompt = load_prompt("summary").replace("{bid_id}", bid_id).replace("{fields_block}", fields_block)
     try:
         text, _ = llm.text(prompt, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001 - the summary must not crash the run
         return FieldValue(value=None, status="failed", confidence=0.0,
                           notes=f"LLM call failed: {type(exc).__name__}: {exc}"[:300])

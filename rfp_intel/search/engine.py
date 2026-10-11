@@ -20,7 +20,7 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from rfp_intel.config import settings
 from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
@@ -37,6 +37,11 @@ from rfp_intel.search.vector_store import VectorStore, chunk_key
 logger = logging.getLogger(__name__)
 _QUERY_CACHE_SIZE = 512          # memoised query embeddings (query text -> vector)
 _REMOVE_LOCK_TIMEOUT = 5.0       # seconds remove_bid waits for an index in progress before giving up
+_EMBED_BATCH = 64                # texts per embed call, so a stop request is seen between batches
+
+
+class IndexCancelled(Exception):
+    """`index_bid` was stopped by its `should_stop` callback; no store was changed."""
 
 
 class EmbedderLike(Protocol):
@@ -140,14 +145,23 @@ class SearchEngine:
         logger.info("removed bid %s from the index", bid_id)
         return True
 
-    def index_bid(self, folder: Path, force: bool = False) -> IndexStats:
+    def index_bid(self, folder: Path, force: bool = False,
+                  should_stop: Callable[[], bool] | None = None) -> IndexStats:
         """Index a bid folder; unchanged bids are skipped, changed bids are rebuilt.
 
         Held under `_write_lock` for the whole operation: the manifest is read at
         the start and written at the end, so two concurrent indexes (two uploads,
         or an upload and a CLI run) would otherwise drop one bid's entry and leave
         it indexed but invisible to `known_bids`.
+
+        `should_stop` is polled during the slow phases (parsing, embedding) and
+        a True answer raises IndexCancelled. Every check happens before the
+        stores are touched, so a cancelled index leaves them exactly as they were.
         """
+        def checkpoint() -> None:
+            if should_stop is not None and should_stop():
+                raise IndexCancelled(f"indexing of {bid_id} was stopped on request")
+
         started = time.perf_counter()
         folder = Path(folder)
         bid_id = folder.name
@@ -159,10 +173,15 @@ class SearchEngine:
                                   chunks_total=self.vectors.count(bid_id), skipped=True,
                                   seconds=round(time.perf_counter() - started, 2))
 
+            checkpoint()
             documents = load_bid_folder(folder)
             chunks = [chunk for doc in documents for chunk in chunk_document(doc)]
             texts = [embed_text(chunk) for chunk in chunks]
-            vectors = self.embedder.embed_documents(texts)
+            vectors: list[list[float]] = []
+            for i in range(0, len(texts), _EMBED_BATCH):
+                checkpoint()
+                vectors.extend(self.embedder.embed_documents(texts[i:i + _EMBED_BATCH]))
+            checkpoint()
             self.vectors.delete_by_bid(bid_id)
             self.vectors.upsert(chunks, vectors)
             self.bm25.save(bid_id, chunks, texts)

@@ -19,7 +19,7 @@ from rfp_intel.agents.baseline import value_text
 from rfp_intel.agents.nodes.compare import NOT_FOUND
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import Capabilities, Criterion, load_capabilities, settings
-from rfp_intel.logging_utils import log_step, now_iso, record_tool_call
+from rfp_intel.logging_utils import RunCancelled, log_step, now_iso, record_tool_call
 from rfp_intel.schemas import BidRecord, Citation, CriterionChecks, CriterionResult, GoNoGoReport
 
 LABELS = {"go": "Go", "no_go": "No-go", "review": "Needs review"}
@@ -103,6 +103,8 @@ def _ask(record: BidRecord, caps: Capabilities, criteria: list[Criterion]) -> tu
               .replace("{criteria_block}", _criteria_block(criteria)))
     try:
         checks, _ = llm.structured(prompt, CriterionChecks, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001 - undecided criteria become unknown
         return {}, f"go_no_go: LLM call failed: {type(exc).__name__}: {exc}"
     return {item.criterion.strip(): (item.status, item.reason.strip()) for item in checks.items

@@ -28,7 +28,7 @@ from typing import Any, Protocol, TypeVar
 from pydantic import BaseModel, SecretStr, ValidationError
 
 from rfp_intel.config import settings
-from rfp_intel.logging_utils import record_llm_call
+from rfp_intel.logging_utils import raise_if_cancelled, record_llm_call
 from rfp_intel.schemas import Usage
 
 T = TypeVar("T", bound=BaseModel)
@@ -214,6 +214,7 @@ def _call(
     prompt: str, system: str | None, model: str, schema: dict | None, schema_name: str
 ) -> tuple[str, Usage]:
     """One provider call with dev cache, usage accounting and trace recording."""
+    raise_if_cancelled()  # a stopped run must not start another provider request
     if not model:
         raise LLMError("no model configured (set EXTRACT_MODEL / REASON_MODEL in .env)")
     provider_name, actual_model = resolve_model(model)

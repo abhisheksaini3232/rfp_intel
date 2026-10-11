@@ -26,6 +26,7 @@ from rfp_intel.config import ROOT, settings
 from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
 from rfp_intel.logging_utils import (RunCancelled, clear_cancel, is_cancel_requested, new_run_id, read_trace,
                                      request_cancel, summarize_run)
+from rfp_intel.search.engine import IndexCancelled
 from rfp_intel.schemas import (
     Answer,
     BidDetail,
@@ -94,12 +95,13 @@ def safe_file_path(bid_id: str, file_name: str) -> Path:
 
 # ---------------------------------------------------------------- index / search
 
-def index_bid(folder: Path, force: bool = False) -> IndexStats:
-    """Index one bid folder with the shared engine."""
+def index_bid(folder: Path, force: bool = False,
+              should_stop: Callable[[], bool] | None = None) -> IndexStats:
+    """Index one bid folder with the shared engine; `should_stop` makes it cancellable."""
     folder = Path(folder)
     if not folder.is_dir():
         raise FileNotFoundError(f"bid folder not found: {folder}")
-    return get_engine().index_bid(folder, force=force)
+    return get_engine().index_bid(folder, force=force, should_stop=should_stop)
 
 
 def search(query: str, bid_id: str | None = None, doc_type: str | None = None,
@@ -119,7 +121,7 @@ def extract(bid_id: str, run_id: str | None = None) -> BidRecord:
     folder = bid_folder(bid_id)
     if not folder.is_dir():
         raise FileNotFoundError(f"bid folder not found: {folder}")
-    index_bid(folder)
+    index_bid(folder, should_stop=(lambda: is_cancel_requested(run_id)) if run_id else None)
     state = run_extraction(bid_id, run_id=run_id)
     record = state.get("record")
     if record is None:
@@ -250,19 +252,24 @@ def start_indexing(folder: Path) -> str:
     def worker() -> None:
         stats = None
         try:
-            stats = index_bid(folder)
+            stats = index_bid(folder, should_stop=lambda: is_cancel_requested(run_id))
             _set_run(run_id, "done")
             logger.info("indexed %s: %d documents, %d chunks in %.1fs",
                         bid_id, stats.documents, stats.chunks_total, stats.seconds)
+        except IndexCancelled:
+            _set_run(run_id, "cancelled", "stopped on request")
+            logger.info("indexing of %s stopped on request (run %s)", bid_id, run_id)
         except Exception as exc:  # noqa: BLE001 - a failed index is reported, never raised
             _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}")
         finally:
             with _runs_lock:
                 _indexing.pop(bid_id, None)
         # Only after the index run is marked done, so the UI sees indexing
-        # finish before the extraction appears.
-        if stats is not None:
+        # finish before the extraction appears. A cancel that arrived too late
+        # to interrupt the index (e.g. from remove_bid) still stops here.
+        if stats is not None and not is_cancel_requested(run_id):
             _auto_extract(bid_id, stats)
+        clear_cancel(run_id)
 
     threading.Thread(target=worker, name=f"index-{bid_id}", daemon=True).start()
     return run_id
@@ -709,17 +716,15 @@ def eval_results(kind: Literal["retrieval", "extraction"]) -> dict | None:
 def remove_bid(bid_id: str) -> RemoveResult:
     """Delete a bid everywhere: index, saved outputs (record, summaries, parsed files) and its data folder.
 
-    ValueError for a bad id, FileNotFoundError when the bid is neither on disk
-    nor indexed, RuntimeError while an extraction of it is running, while the
-    index is busy, or while Windows keeps a file locked after retries.
+    A running extraction or upload-indexing of this bid is cancelled first and
+    given `_STOP_WAIT_SECONDS` to unwind. ValueError for a bad id,
+    FileNotFoundError when the bid is neither on disk nor indexed, RuntimeError
+    while a run is still stopping, while the index is busy, or while Windows
+    keeps a file locked after retries - all cases where a retry makes sense.
     """
     if not BID_ID_PATTERN.match(bid_id or ""):
         raise ValueError("bid_id must match ^[A-Za-z0-9_-]{1,64}$")
-    running = active_run()
-    if running is not None and running.bid_id == bid_id:
-        raise RuntimeError(f"extraction {running.run_id} of {bid_id} is still running")
-    if bid_id in indexing_bids():
-        raise RuntimeError(f"{bid_id} is still being indexed; wait for it to finish")
+    _stop_runs_for(bid_id)
     folder = bid_folder(bid_id)
     indexed = get_engine().remove_bid(bid_id)
     if not folder.is_dir() and not indexed and not record_path(bid_id).exists():
@@ -729,6 +734,43 @@ def remove_bid(bid_id: str) -> RemoveResult:
         _delete_retrying(lambda: shutil.rmtree(folder), folder)
     logger.info("removed bid %s (indexed=%s, outputs=%d, folder=%s)", bid_id, indexed, removed_files, folder)
     return RemoveResult(bid_id=bid_id, indexed=indexed, outputs_removed=removed_files, folder_removed=True)
+
+
+# How long remove_bid waits for a cancelled run to unwind. Cancellation is
+# cooperative (checked before every LLM request, between retrieval fields and
+# between embedding batches), so a run normally stops within a few seconds;
+# only a provider request already in flight can take longer.
+_STOP_WAIT_SECONDS = 15.0
+_STOP_POLL_INTERVAL = 0.25
+
+
+def _stop_runs_for(bid_id: str) -> None:
+    """Cancel every run of a bid (extraction, upload-indexing) and wait until none is active.
+
+    Re-checks in a loop so a follow-up run (an auto-extract that started just
+    as the indexing it waited on finished) is cancelled too. RuntimeError when
+    something is still stopping after `_STOP_WAIT_SECONDS`; the cancel flags
+    stay set, so a retry a moment later usually finds the runs already stopped.
+    """
+    deadline = time.monotonic() + _STOP_WAIT_SECONDS
+    while True:
+        busy: list[str] = []
+        running = active_run()
+        if running is not None and running.bid_id == bid_id:
+            request_cancel(running.run_id)
+            busy.append(running.run_id)
+        with _runs_lock:
+            indexing_run = _indexing.get(bid_id)
+        if indexing_run is not None:
+            request_cancel(indexing_run)
+            busy.append(indexing_run)
+        if not busy:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"{bid_id} is being stopped (run {busy[0]} is finishing its current step); "
+                "try again in a moment")
+        time.sleep(_STOP_POLL_INTERVAL)
 
 
 # On Windows a freshly written file can be held open briefly by a virus

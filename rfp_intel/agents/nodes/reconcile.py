@@ -13,7 +13,7 @@ from rfp_intel.agents.baseline import find_span, value_text
 from rfp_intel.agents.nodes.retrieve import evidence_key
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import load_fields, settings
-from rfp_intel.logging_utils import log_step
+from rfp_intel.logging_utils import RunCancelled, log_step
 from rfp_intel.schemas import (
     AddendumChange,
     Citation,
@@ -111,6 +111,8 @@ def reconcile(state: dict) -> dict:
     try:
         decisions, _ = llm.structured(build_prompt(bid_id, drafts, with_evidence, evidence),
                                       ReconcileDecisions, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001 - keep the drafts as they are
         return {"errors": [f"reconcile: LLM call failed: {type(exc).__name__}: {exc}"]}
 

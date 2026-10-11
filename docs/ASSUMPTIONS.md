@@ -741,3 +741,17 @@ Each entry: decision, reason, phase it was made in.
     5 s with "the index is busy", instead of hanging the DELETE request for
     minutes. Both timeouts are module constants, not config keys, because no
     user would tune them.
+107. **Remove stops the bid's runs; Stop acts within one call.** Cancellation
+    was only checked between graph nodes, so "Stop" could wait minutes for a
+    retrieval or LLM node to finish, and DELETE /bids/{id} flatly refused (409)
+    while anything ran. Now: (a) `llm.py` checks the run's cancel flag before
+    every provider request (via the step recorder, which now carries the
+    run_id), and every node re-raises `RunCancelled` instead of swallowing it
+    as a field error; (b) `SearchEngine.index_bid` takes an optional
+    `should_stop` callback, polled between parsing and each 64-text embedding
+    batch, always before the stores are mutated, so a cancelled index changes
+    nothing; (c) `remove_bid` cancels the bid's extraction and upload-indexing
+    runs and waits up to 15 s for them to unwind before deleting, answering
+    409 "still stopping" past that, which the web app retries automatically
+    (3 s interval, up to 20 times) while the button shows "Removing...". An
+    upload whose indexing was cancelled no longer auto-starts its extraction.

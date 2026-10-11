@@ -121,6 +121,50 @@ def test_retrieve_stops_between_fields(monkeypatch):
         clear_cancel("r-mid")
 
 
+def test_raise_if_cancelled_fires_inside_the_running_node():
+    """A stop that arrives while a node runs is seen at the next checkpoint, not the next node."""
+    @log_step(agent="Test", node="llm-ish")
+    def node(state: dict) -> dict:
+        request_cancel(state["run_id"])          # the stop arrives mid-node
+        logging_utils.raise_if_cancelled()       # what llm._call does before each request
+        raise AssertionError("not reached")
+
+    try:
+        with pytest.raises(RunCancelled):
+            node({"run_id": "r-mid-node"})
+    finally:
+        clear_cancel("r-mid-node")
+
+
+def test_llm_call_checks_the_flag_before_any_provider_request():
+    """llm._call must not start another provider request once the run is cancelled."""
+    from rfp_intel import llm as llm_mod
+
+    @log_step(agent="Test", node="caller")
+    def node(state: dict) -> dict:
+        request_cancel(state["run_id"])
+        llm_mod.text("hello", "any-model")       # would need an API key if it got further
+        raise AssertionError("not reached")
+
+    try:
+        with pytest.raises(RunCancelled):
+            node({"run_id": "r-llm"})
+    finally:
+        clear_cancel("r-llm")
+
+
+def test_a_cancelled_llm_call_unwinds_the_node_instead_of_a_fallback(monkeypatch):
+    """Nodes catch Exception around LLM calls, but RunCancelled must pass through."""
+    from rfp_intel.agents.nodes import orchestrate as orch
+
+    def cancelled(*_args, **_kwargs):
+        raise RunCancelled("r-orch")
+
+    monkeypatch.setattr(orch, "question_plan", cancelled)
+    with pytest.raises(RunCancelled):
+        orch.orchestrate.__wrapped__({"mode": "qa", "question": "x", "bid_ids": [], "run_id": "r-orch"})
+
+
 def test_clear_cancel_is_idempotent():
     request_cancel("r-x")
     assert is_cancel_requested("r-x")

@@ -23,7 +23,7 @@ from rfp_intel.agents import rules
 from rfp_intel.agents.nodes.retrieve import evidence_key
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import load_fields, settings
-from rfp_intel.logging_utils import log_step, record_tool_call
+from rfp_intel.logging_utils import RunCancelled, log_step, record_tool_call
 from rfp_intel.schemas import Chunk, EvidenceBundle, FieldValue, SupportCheck, SupportChecks, ValidationResult
 
 FAILED_CONFIDENCE = 0.2
@@ -82,6 +82,8 @@ def support_checks(bid_id: str, group: str, fields: dict[str, FieldValue],
               .replace("{fields_block}", fields_block).replace("{evidence_block}", evidence_block))
     try:
         result, _ = llm.structured(prompt, SupportChecks, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001 - the check is skipped, not fatal
         skipped = {name: SupportCheck(field=name, supported=True, reason="support check skipped") for name in fields}
         return skipped, f"validate: support check failed for {group}: {type(exc).__name__}: {exc}"

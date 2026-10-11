@@ -76,7 +76,7 @@ class FakeEngine:
             _chunk("s:1:0", bid, "specs.pdf", SPECS_TEXT, DocType.SPECS),
         ]
 
-    def index_bid(self, folder, force=False):
+    def index_bid(self, folder, force=False, should_stop=None):
         return IndexStats(bid_id=folder.name, documents=3, chunks_added=3, chunks_total=3)
 
     def warm_up(self):

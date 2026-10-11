@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import shutil
+import threading
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +15,8 @@ from rfp_intel import services
 from rfp_intel.agents import runtime
 from rfp_intel.api.server import app
 from rfp_intel.config import settings
-from rfp_intel.search.engine import SearchEngine
+from rfp_intel.logging_utils import clear_cancel, is_cancel_requested
+from rfp_intel.search.engine import IndexCancelled, SearchEngine
 from tests.graph_fakes import FakeEngine, ScriptedLLM, install
 from tests.search_fakes import FakeEmbedder, FakeReranker
 
@@ -72,14 +75,79 @@ def test_service_removes_index_outputs_and_folder_only_for_that_bid(workspace):
     assert (outputs / "Other.json").exists() and (outputs / f"{BID}2.json").exists()   # other bids untouched
 
 
-def test_service_errors(workspace):
+def test_service_errors(workspace, monkeypatch):
     with pytest.raises(ValueError):
         services.remove_bid("../etc")
     with pytest.raises(FileNotFoundError):
         services.remove_bid("Nope")
+    # A run that never honours its cancel: remove gives up after the stop wait.
+    monkeypatch.setattr(services, "_STOP_WAIT_SECONDS", 0.3)
     services._register_run("run-1", "extract", BID)
-    with pytest.raises(RuntimeError):
-        services.remove_bid(BID)
+    try:
+        with pytest.raises(RuntimeError, match="stopped|stopping"):
+            services.remove_bid(BID)
+        assert is_cancel_requested("run-1"), "the stop request stands, so a retry can succeed"
+    finally:
+        clear_cancel("run-1")
+
+
+def test_remove_stops_a_running_extraction_then_deletes(workspace):
+    """Clicking Remove during an extraction cancels it and deletes once it unwound."""
+    services._register_run("run-1", "extract", BID)
+
+    def stopper() -> None:  # the worker thread honouring the cancel flag
+        while not is_cancel_requested("run-1"):
+            time.sleep(0.01)
+        services._set_run("run-1", "cancelled", "stopped on request")
+
+    thread = threading.Thread(target=stopper)
+    thread.start()
+    try:
+        result = services.remove_bid(BID)
+    finally:
+        thread.join(timeout=5)
+        clear_cancel("run-1")
+    assert result.folder_removed and not (workspace / "data" / BID).exists()
+
+
+def test_remove_stops_an_upload_still_being_indexed(workspace):
+    """Clicking Remove while the upload indexes cancels the indexing run first."""
+    services._register_run("run-2", "index", BID)
+    with services._runs_lock:
+        services._indexing[BID] = "run-2"
+
+    def stopper() -> None:  # the index worker noticing should_stop
+        while not is_cancel_requested("run-2"):
+            time.sleep(0.01)
+        services._set_run("run-2", "cancelled", "stopped on request")
+        with services._runs_lock:
+            services._indexing.pop(BID, None)
+
+    thread = threading.Thread(target=stopper)
+    thread.start()
+    try:
+        result = services.remove_bid(BID)
+    finally:
+        thread.join(timeout=5)
+        clear_cancel("run-2")
+        with services._runs_lock:
+            services._indexing.pop(BID, None)
+    assert result.folder_removed and not (workspace / "data" / BID).exists()
+
+
+def test_engine_index_bid_stops_before_touching_the_stores(tmp_path, mini_bid):
+    """A cancelled index leaves the stores and manifest exactly as they were."""
+    folder = tmp_path / "data" / "MiniBid"
+    shutil.copytree(mini_bid, folder)
+    engine = SearchEngine(storage_dir=tmp_path / "storage", embedder=FakeEmbedder(), reranker=FakeReranker())
+    try:
+        with pytest.raises(IndexCancelled):
+            engine.index_bid(folder, should_stop=lambda: True)
+        assert engine.known_bids() == []
+        stats = engine.index_bid(folder)      # a later index starts clean
+        assert not stats.skipped and stats.chunks_total > 0
+    finally:
+        engine.close()
 
 
 def test_engine_remove_bid_refuses_instead_of_waiting_behind_an_index(tmp_path, monkeypatch):

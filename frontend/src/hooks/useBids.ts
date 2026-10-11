@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 
 export const bidsQueryKey = ["bids"] as const;
 
@@ -26,11 +26,23 @@ export function useBidDetail(bidId: string | undefined) {
   });
 }
 
-/** Remove a bid everywhere (index, outputs, uploaded files); refreshes the bid list on success. */
+/** How often and how long a remove retries while the server stops the bid's runs. */
+export const REMOVE_RETRY_DELAY_MS = 3_000;
+export const REMOVE_MAX_RETRIES = 20;
+
+/**
+ * Remove a bid everywhere (index, outputs, uploaded files); refreshes the bid
+ * list on success. The server first cancels any running extraction or indexing
+ * of the bid and answers 409 while that is still winding down (or while
+ * Windows briefly locks a file), so a 409 is retried until the removal lands.
+ */
 export function useRemoveBid() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (bidId: string) => api.removeBid(bidId),
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.status === 409 && failureCount < REMOVE_MAX_RETRIES,
+    retryDelay: REMOVE_RETRY_DELAY_MS,
     onSuccess: (_result, bidId) => {
       queryClient.removeQueries({ queryKey: ["bid", bidId] });
       void queryClient.invalidateQueries({ queryKey: bidsQueryKey });

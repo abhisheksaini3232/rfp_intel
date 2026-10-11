@@ -16,7 +16,7 @@ from rfp_intel import llm
 from rfp_intel.agents.baseline import value_text
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import field_names, settings
-from rfp_intel.logging_utils import log_step, now_iso, record_tool_call
+from rfp_intel.logging_utils import RunCancelled, log_step, now_iso, record_tool_call
 from rfp_intel.schemas import (
     BidRecord,
     Citation,
@@ -93,6 +93,8 @@ def write_narrative(bid_ids: list[str], rows: list[ComparisonRow]) -> tuple[str,
               .replace("{fields_block}", fields_block(rows)))
     try:
         draft, _ = llm.structured(prompt, ComparisonDraft, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001 - the table is still a valid report
         return NARRATIVE_UNAVAILABLE, [], f"compare: LLM call failed: {type(exc).__name__}: {exc}"
     by_field = {row.field: row for row in rows}

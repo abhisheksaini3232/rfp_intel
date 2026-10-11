@@ -111,7 +111,10 @@ export function BidDetailPage() {
             <Button
               variant="outline"
               onClick={() => {
-                if (!window.confirm(`Remove ${bidId}? This deletes its index entries, outputs and uploaded files.`)) return;
+                const warning = run.running
+                  ? `Remove ${bidId}? This stops the running extraction and deletes its index entries, outputs and uploaded files.`
+                  : `Remove ${bidId}? This deletes its index entries, outputs and uploaded files.`;
+                if (!window.confirm(warning)) return;
                 removal.mutate(bidId, {
                   onSuccess: () => {
                     toast.success(`Removed ${bidId}`);
@@ -120,11 +123,11 @@ export function BidDetailPage() {
                   onError: (err) => toast.error(err.message),
                 });
               }}
-              disabled={removal.isPending || run.running}
-              title={run.running ? "Wait for the running extraction to finish." : undefined}
+              disabled={removal.isPending}
+              title={run.running ? "Stops the running extraction, then deletes the bid." : undefined}
             >
               {removal.isPending ? <Loader2 className="animate-spin" /> : <Trash2 />}
-              Remove bid
+              {removal.isPending ? "Removing..." : "Remove bid"}
             </Button>
             <Button
               onClick={() => run.start()}
@@ -153,11 +156,11 @@ export function BidDetailPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => run.cancel()}
-                  disabled={run.cancelling}
-                  title="Stop after the step that is currently running"
+                  disabled={run.cancelling || run.stopping}
+                  title="Stops as soon as the call in flight finishes"
                 >
-                  {run.cancelling ? <Loader2 className="animate-spin" /> : <Square />}
-                  {run.cancelling ? "Stopping..." : "Stop"}
+                  {run.cancelling || run.stopping ? <Loader2 className="animate-spin" /> : <Square />}
+                  {run.cancelling || run.stopping ? "Stopping..." : "Stop"}
                 </Button>
               )}
               {run.finished && (

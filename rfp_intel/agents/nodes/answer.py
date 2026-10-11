@@ -16,7 +16,7 @@ from rfp_intel.agents.nodes.retrieve import QA_PREFIX
 from rfp_intel.agents.nodes.validate import chunk_index, score_index
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import settings
-from rfp_intel.logging_utils import log_step, record_tool_call
+from rfp_intel.logging_utils import RunCancelled, log_step, record_tool_call
 from rfp_intel.schemas import Answer, AnswerDraft, BidRecord, Citation, EvidenceBundle, SearchHit, SupportChecks
 
 NOT_FOUND = "Not found in documents"
@@ -113,6 +113,8 @@ def answer(state: dict) -> dict:
         return {"answer": not_found_answer(question, bids, 0)}
     try:
         draft, _ = llm.structured(build_prompt(state, evidence), AnswerDraft, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001 - answer not_found rather than crash
         return {"answer": not_found_answer(question, bids, len(evidence)),
                 "errors": [f"answer: LLM call failed: {type(exc).__name__}: {exc}"]}
@@ -166,6 +168,8 @@ def _support(ans: Answer, chunks: dict) -> tuple[bool, str, str | None]:
               + ANSWER_CHECK_RULES)
     try:
         result, _ = llm.structured(prompt, SupportChecks, settings.env.reason_model)
+    except RunCancelled:
+        raise
     except Exception as exc:  # noqa: BLE001
         return True, "", f"validate_answer: support check failed: {type(exc).__name__}: {exc}"
     if not result.items:

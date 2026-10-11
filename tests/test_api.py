@@ -15,6 +15,7 @@ from rfp_intel.agents import runtime
 from rfp_intel.api.server import app
 from rfp_intel.config import field_names, settings
 from rfp_intel.schemas import IndexStats
+from rfp_intel.search.engine import IndexCancelled
 from tests.graph_fakes import FakeEngine, ScriptedLLM, install
 
 BID = "BidT"
@@ -211,9 +212,11 @@ def test_upload_returns_before_indexing_finishes_and_reports_progress(client, wo
     engine = runtime.get_engine()
     original = engine.index_bid
 
-    def slow_index(folder, force=False):
-        assert release.wait(timeout=30), "index_bid was never released"
-        return original(folder, force=force)
+    def slow_index(folder, force=False, should_stop=None):
+        while not release.wait(timeout=0.05):   # a long index that still honours should_stop
+            if should_stop is not None and should_stop():
+                raise IndexCancelled(f"indexing of {folder.name} was stopped on request")
+        return original(folder, force=force, should_stop=should_stop)
 
     monkeypatch.setattr(engine, "index_bid", slow_index)
 
@@ -226,11 +229,13 @@ def test_upload_returns_before_indexing_finishes_and_reports_progress(client, wo
     row = next(b for b in client.get("/bids").json() if b["bid_id"] == "SlowBid")
     assert row["indexing"] is True and row["doc_count"] == 1
     assert client.get("/bids/SlowBid").json()["indexing"] is True
-    assert client.delete("/bids/SlowBid").status_code == 409, "cannot remove a bid mid-index"
 
-    release.set()
-    _wait_for_run(client, ok.json()["run_id"])
+    # Removing mid-index stops the indexing run first, then deletes the bid.
+    assert client.delete("/bids/SlowBid").status_code == 200
+    assert _wait_for_run(client, ok.json()["run_id"])["status"] == "cancelled"
+    assert all(b["bid_id"] != "SlowBid" for b in client.get("/bids").json())
     assert not any(b["indexing"] for b in client.get("/bids").json())
+    release.set()
 
 
 def _upload(client, bid_id: str = "AutoBid", name: str = "a.pdf", body: bytes = b"%PDF"):

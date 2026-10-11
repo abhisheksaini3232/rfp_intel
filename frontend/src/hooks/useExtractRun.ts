@@ -51,6 +51,7 @@ export function useExtractRun(bidId: string) {
   const queryClient = useQueryClient();
   const [runId, setRunId] = useState<string | undefined>();
   const [settled, setSettled] = useState(false);
+  const [stopRequested, setStopRequested] = useState(false);
   const runs = useRuns();
   const active = activeRun(runs.data);
 
@@ -58,6 +59,7 @@ export function useExtractRun(bidId: string) {
     mutationFn: () => api.extract(bidId),
     onSuccess: (data) => {
       setSettled(false);
+      setStopRequested(false);
       setRunId(data.run_id);
       void queryClient.invalidateQueries({ queryKey: runsQueryKey });
     },
@@ -97,16 +99,21 @@ export function useExtractRun(bidId: string) {
     void queryClient.invalidateQueries({ queryKey: runsQueryKey });
   }, [finished, settled, bidId, queryClient]);
 
-  // Asks the server to stop; the run keeps reporting until the node in flight
-  // finishes, then its status becomes "cancelled" and polling stops.
+  // Asks the server to stop; the run keeps reporting until the step in flight
+  // notices the flag (checked before every LLM call and between retrieval
+  // fields), then its status becomes "cancelled" and polling stops.
   const cancel = useMutation({
     mutationFn: () => api.cancelRun(runId as string),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: runsQueryKey }),
+    onSuccess: () => {
+      setStopRequested(true);
+      void queryClient.invalidateQueries({ queryKey: runsQueryKey });
+    },
   });
 
   const reset = useCallback(() => {
     setRunId(undefined);
     setSettled(false);
+    setStopRequested(false);
   }, []);
 
   const conflict = start.error instanceof ApiError && start.error.status === 409;
@@ -127,6 +134,8 @@ export function useExtractRun(bidId: string) {
     /** Ask the running extraction to stop at its next step. */
     cancel: cancel.mutate,
     cancelling: cancel.isPending,
+    /** A stop was requested and the run has not wound down yet. */
+    stopping: stopRequested && Boolean(runId) && !finished,
     reset,
   };
 }

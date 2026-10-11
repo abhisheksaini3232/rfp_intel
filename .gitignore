@@ -21,5 +21,9 @@ __pycache__/
 node_modules/
 frontend/dist/
 docs/DEMO_VIDEO_GUIDE.pdf
-data/test/
-data/test_1/
+
+# uploaded bids stay local; only the assignment inputs and the synthetic mini bid are tracked
+data/*
+!data/Bid1/
+!data/Bid2/
+!data/MiniBid/

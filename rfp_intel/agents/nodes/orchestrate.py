@@ -5,7 +5,7 @@ from __future__ import annotations
 from rfp_intel import llm
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import load_fields, settings
-from rfp_intel.logging_utils import log_step
+from rfp_intel.logging_utils import RunCancelled, log_step
 from rfp_intel.schemas import Plan, QAPlan, SearchFilters, Task
 
 EXTRACT_GROUPS = ("dates_logistics", "commercial_legal", "product_specs")
@@ -40,6 +40,8 @@ def orchestrate(state: dict) -> dict:
         question = state.get("question") or ""
         try:
             plan = question_plan(question, bid_ids)
+        except RunCancelled:
+            raise
         except Exception as exc:  # noqa: BLE001 - planning failure must not stop the answer
             plan = Plan(mode="qa", question_type="single", tasks=[
                 Task(group="qa", queries=[question], filters=SearchFilters(bid_ids=bid_ids or None))])
