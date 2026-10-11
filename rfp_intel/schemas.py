@@ -287,13 +287,19 @@ class StepLog(BaseModel):                # one line of logs/trace_<run_id>.jsonl
     error: str | None = None
 
 
+RunKind = Literal["extract", "qa"]
+
+
 class RunStatus(BaseModel):
-    """Progress of a background extraction run."""
+    """Progress of a background run: an extraction, or a question (answer filled when done)."""
 
     run_id: str
-    bid_id: str
+    bid_id: str                          # qa runs: the bids in scope joined with ","; "" for all
     status: Literal["running", "done", "failed"]
     steps: list[StepLog]
+    kind: RunKind = "extract"
+    answer: Answer | None = None
+    error: str | None = None
 
 
 class RunInfo(BaseModel):               # GET /runs row
@@ -302,6 +308,7 @@ class RunInfo(BaseModel):               # GET /runs row
     run_id: str
     bid_id: str
     status: Literal["running", "done", "failed"]
+    kind: RunKind = "extract"
 
 
 class BidSummary(BaseModel):            # GET /bids row (Phase 7a)

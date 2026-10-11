@@ -59,7 +59,8 @@ def _wait_for_run(client: TestClient, run_id: str, timeout: float = 60.0) -> dic
 
 def test_health_and_lifespan_keep_injected_engine(client):
     body = client.get("/health").json()
-    assert body == {"status": "ok", "indexed_bids": [BID]}
+    assert body == {"status": "ok", "indexed_bids": [BID],
+                    "ask_queue": {"running": 0, "queued": 0, "workers": settings.api.ask_workers}}
     assert isinstance(runtime.get_engine(), FakeEngine)
 
 
@@ -140,7 +141,7 @@ def test_list_runs_newest_first_with_status(client):
     services._runs["later"] = {"bid_id": "Other", "status": "running", "error": None}
     rows = client.get("/runs").json()
     assert [r["run_id"] for r in rows] == ["later", started]
-    assert rows[0] == {"run_id": "later", "bid_id": "Other", "status": "running"}
+    assert rows[0] == {"run_id": "later", "bid_id": "Other", "status": "running", "kind": "extract"}
     assert rows[1]["status"] == "done" and rows[1]["bid_id"] == BID
     assert services.active_run().run_id == "later"
 
@@ -231,3 +232,70 @@ def test_global_error_handler_shape(client, monkeypatch):
     assert resp.status_code == 500 and resp.json() == {"error": "RuntimeError: boom", "run_id": None}
     missing = client.post("/ask", json={})
     assert missing.status_code == 422 and set(missing.json()) == {"error", "run_id"}
+
+
+# ---------------------------------------------------------------- background questions
+
+
+def test_ask_run_starts_in_background_and_carries_the_answer(client):
+    started = client.post("/ask/runs", json={"question": "When is the bid due?", "bid_ids": [BID]})
+    assert started.status_code == 202
+    run_id = started.json()["run_id"]
+    final = _wait_for_run(client, run_id)
+    assert final["status"] == "done" and final["kind"] == "qa" and final["bid_id"] == BID
+    assert final["error"] is None and "July 9, 2024" in final["answer"]["answer"]
+    assert [s["node"] for s in final["steps"]] == ["orchestrate", "retrieve", "answer", "validate_answer"]
+    rows = client.get("/runs").json()
+    assert rows[0]["run_id"] == run_id and rows[0]["kind"] == "qa" and rows[0]["status"] == "done"
+    assert services.active_run() is None                     # questions never hold the extraction lock
+    assert client.get("/health").json()["ask_queue"] == {"running": 0, "queued": 0, "workers": settings.api.ask_workers}
+
+
+def test_ask_run_is_429_when_the_queue_is_full(client, monkeypatch):
+    monkeypatch.setattr(settings.api, "ask_workers", 1)
+    monkeypatch.setattr(settings.api, "ask_queue_max", 1)
+    services._runs["q1"] = {"kind": "qa", "bid_id": "", "status": "running", "error": None, "answer": None}
+    services._runs["q2"] = {"kind": "qa", "bid_id": "", "status": "running", "error": None, "answer": None}
+    resp = client.post("/ask/runs", json={"question": "anything"})
+    assert resp.status_code == 429 and "busy" in resp.json()["error"] and resp.json()["run_id"] is None
+    assert client.get("/health").json()["ask_queue"] == {"running": 1, "queued": 1, "workers": 1}
+    assert services.active_run() is None
+
+
+def test_ask_run_times_out_and_discards_the_late_answer(client, monkeypatch):
+    import threading
+
+    release = threading.Event()
+
+    def slow_ask(question, bid_ids=None, run_id=None):
+        release.wait(5)
+        return services.Answer(question=question, answer="late", citations=[], confidence=1.0, bids=[])
+
+    monkeypatch.setattr(services, "ask", slow_ask)
+    monkeypatch.setattr(settings.agents, "qa_timeout_s", 0.2)
+    run_id = client.post("/ask/runs", json={"question": "slow?"}).json()["run_id"]
+    final = _wait_for_run(client, run_id)
+    assert final["status"] == "failed" and final["error"] == "timed out after 0.2 s" and final["answer"] is None
+    release.set()
+    time.sleep(0.2)
+    assert client.get(f"/runs/{run_id}").json()["status"] == "failed"      # the late result is dropped
+
+
+def test_extract_busy_state_ignores_running_questions(client):
+    services._runs["q1"] = {"kind": "qa", "bid_id": BID, "status": "running", "error": None, "answer": None}
+    assert services.active_run() is None
+    started = client.post("/extract", json={"bid_id": BID})
+    assert started.status_code == 202
+    _wait_for_run(client, started.json()["run_id"])
+
+
+def test_run_status_from_trace_infers_question_kind(client, workspace):
+    from rfp_intel.logging_utils import write_step
+    from rfp_intel.schemas import StepLog
+
+    base = dict(run_id="old-qa", agent="Q&A", started_at="t", input_summary="", tool_calls=[],
+                output_summary="", latency_ms=1)
+    write_step(StepLog(**{**base, "step": 1, "node": "answer"}))
+    write_step(StepLog(**{**base, "step": 2, "node": "validate_answer", "agent": "Validator"}))
+    body = client.get("/runs/old-qa").json()
+    assert body["kind"] == "qa" and body["status"] == "done" and body["answer"] is None

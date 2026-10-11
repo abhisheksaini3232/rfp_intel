@@ -115,11 +115,18 @@ export interface StepLog {
   error: string | null;
 }
 
+export type RunKind = "extract" | "qa";
+
+/** GET /runs/{id}: an extraction, or a question whose `answer` is filled when done. */
 export interface RunStatus {
   run_id: string;
+  /** Questions: the bids in scope joined with ","; "" when all bids were searched. */
   bid_id: string;
   status: RunState;
   steps: StepLog[];
+  kind: RunKind;
+  answer: Answer | null;
+  error: string | null;
 }
 
 /** One row of GET /runs: a run this API process started (no steps). */
@@ -127,6 +134,7 @@ export interface RunInfo {
   run_id: string;
   bid_id: string;
   status: RunState;
+  kind: RunKind;
 }
 
 export interface IndexStats {
@@ -141,9 +149,16 @@ export interface IndexStats {
 
 // ---- API-only shapes (Section 6.5) ----
 
+export interface AskQueue {
+  running: number;
+  queued: number;
+  workers: number;
+}
+
 export interface Health {
   status: string;
   indexed_bids: string[];
+  ask_queue: AskQueue;
 }
 
 export interface BidSummary {

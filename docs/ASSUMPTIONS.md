@@ -503,3 +503,22 @@ Each entry: decision, reason, phase it was made in.
     so the embedding and re-ranking models load at startup (~30 s) instead
     of inside the first user request. The same question now runs in ~10 s
     warm (one retrieve step, ~6 queries, one re-rank).
+91. **Questions run in the background with visible progress.** `POST /ask`
+    still answers synchronously (CLI, eval, simple clients). The web app
+    uses `POST /ask/runs` (202, `{run_id}`) and polls `GET /runs/{run_id}`,
+    which now carries `kind` ("extract" | "qa"), the `answer` once a question
+    is done and `error` when it failed. The run registry is shared by both
+    kinds; `GET /runs` lists both and the web app's "busy extracting" state
+    only considers extractions. Questions run on a pool of
+    `api.ask_workers` threads (default 2) and never take the extraction
+    lock; when `api.ask_queue_max` (default 8) questions are already waiting
+    the API answers 429 and the chat shows a "busy" message. A question
+    still running after `agents.qa_timeout_s` (default 120) is reported as
+    failed; its thread cannot be interrupted, so it finishes in the
+    background and its late result is discarded. Runs are kept in memory, so
+    an API restart forgets them (a trace file still answers `GET /runs/{id}`,
+    with the kind inferred from the nodes). The pending chat bubble shows
+    the step the server is on (planning, searching, drafting, checking),
+    elapsed seconds and a link to the trace; the trace page shows the answer
+    bubble above the steps for question runs. `GET /health` reports the
+    question queue (`running`, `queued`, `workers`).

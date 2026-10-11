@@ -53,9 +53,17 @@ class SearchResponse(BaseModel):
 
 
 class RunStarted(BaseModel):
-    """POST /extract response."""
+    """POST /extract and POST /ask/runs response."""
 
     run_id: str
+
+
+class AskQueue(BaseModel):
+    """Background question load (GET /health)."""
+
+    running: int
+    queued: int
+    workers: int
 
 
 class Health(BaseModel):
@@ -63,6 +71,7 @@ class Health(BaseModel):
 
     status: str
     indexed_bids: list[str]
+    ask_queue: AskQueue
 
 
 @asynccontextmanager
@@ -72,6 +81,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        services.shutdown_background()
         close_engine()
 
 
@@ -112,8 +122,9 @@ async def _unhandled_error(_request: Request, exc: Exception) -> JSONResponse:
 
 @app.get("/health", response_model=Health)
 def health() -> Health:
-    """Liveness plus the bids the engine knows."""
-    return Health(status="ok", indexed_bids=list(get_engine().known_bids()))
+    """Liveness, the bids the engine knows and the background question load."""
+    return Health(status="ok", indexed_bids=list(get_engine().known_bids()),
+                  ask_queue=AskQueue(**services.ask_queue_stats()))
 
 
 @app.get("/bids", response_model=list[BidSummary])
@@ -177,13 +188,13 @@ def extract(body: ExtractRequest) -> RunStarted:
 
 @app.get("/runs", response_model=list[RunInfo])
 def runs() -> list[RunInfo]:
-    """Runs started by this API process, newest first (the running one, if any, included)."""
+    """Extractions and questions started by this API process, newest first."""
     return services.list_runs()
 
 
 @app.get("/runs/{run_id}", response_model=RunStatus)
 def run(run_id: str) -> RunStatus:
-    """Status and trace steps of a run."""
+    """Status and trace steps of a run; a finished question also carries its answer."""
     try:
         return services.run_status(run_id)
     except KeyError as exc:
@@ -203,8 +214,17 @@ def search(q: str, bid_id: str | None = None, doc_type: str | None = None, adden
 
 @app.post("/ask", response_model=Answer)
 def ask(body: AskRequest) -> Answer:
-    """Answer a question with citations."""
+    """Answer a question with citations (blocks until the answer is ready)."""
     return services.ask(body.question, body.bid_ids)
+
+
+@app.post("/ask/runs", response_model=RunStarted, status_code=202)
+def ask_run(body: AskRequest) -> RunStarted:
+    """Start answering a question in the background; poll GET /runs/{run_id} for steps and the answer."""
+    try:
+        return RunStarted(run_id=services.start_question(body.question, body.bid_ids))
+    except services.AskQueueFull as exc:
+        raise HTTPException(429, str(exc)) from exc
 
 
 @app.get("/chunks/{chunk_id}", response_model=Chunk)

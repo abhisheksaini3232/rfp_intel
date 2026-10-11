@@ -36,9 +36,9 @@ export function useRuns() {
   });
 }
 
-/** The run holding the extraction lock, if any. */
+/** The extraction holding the extraction lock, if any (questions never hold it). */
 export function activeRun(runs: RunInfo[] | undefined): RunInfo | undefined {
-  return runs?.find((r) => r.status === "running");
+  return runs?.find((r) => r.status === "running" && r.kind === "extract");
 }
 
 /**

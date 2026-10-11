@@ -1,8 +1,8 @@
 """Functions shared by the CLI and the API (Phase 7a, BUILD_PLAN 6.5).
 
 index_bid, search, extract, ask, list_bids, get_record, run_status plus the
-helpers the API needs (bid detail, chunk lookup, background extraction,
-uploads, safe file paths, eval results). Every function returns a Pydantic
+helpers the API needs (bid detail, chunk lookup, background extraction and
+questions, uploads, safe file paths, eval results). Every function returns a Pydantic
 model from rfp_intel.schemas or a plain Python value; the search engine is
 always the shared one from rfp_intel.agents.runtime.
 """
@@ -12,8 +12,9 @@ from __future__ import annotations
 import json
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from rfp_intel.agents.graph import run_extraction, run_question
 from rfp_intel.agents.runtime import get_engine
@@ -40,11 +41,17 @@ BID_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 EVAL_RESULTS_DIR = ROOT / "eval" / "results"
 _TERMINAL_NODES = {"report", "validate_answer"}
 
-# Background extraction registry: run_id -> {"bid_id", "status", "error"}.
-_runs: dict[str, dict[str, str | None]] = {}
+# Background run registry: run_id -> {"kind", "bid_id", "status", "error", "answer"}.
+# Extractions ("extract") and questions ("qa") share it; entries written by
+# older code (no "kind") are read as extractions.
+_runs: dict[str, dict[str, Any]] = {}
 _runs_lock = threading.Lock()
 # Only one extraction at a time (single Qdrant client, CPU-bound embedding).
 _extract_lock = threading.Lock()
+# Questions run on a small pool; `_ask_pool` is created on first use so tests and
+# the CLI never start threads they do not need.
+_ask_pool: ThreadPoolExecutor | None = None
+_ask_pool_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------- paths
@@ -106,10 +113,10 @@ def extract(bid_id: str, run_id: str | None = None) -> BidRecord:
     return record
 
 
-def ask(question: str, bid_ids: list[str] | None = None) -> Answer:
+def ask(question: str, bid_ids: list[str] | None = None, run_id: str | None = None) -> Answer:
     """Answer a free-form question over the given bids (default: every indexed bid)."""
     bids = list(bid_ids) if bid_ids else list(get_engine().known_bids())
-    state = run_question(question, bids)
+    state = run_question(question, bids, run_id=run_id)
     answer = state.get("answer")
     if answer is None:
         return Answer(question=question, answer="Not found in documents", citations=[],
@@ -128,8 +135,7 @@ def start_extraction(bid_id: str) -> str:
     if not _extract_lock.acquire(blocking=False):
         raise ExtractionBusy(active_run())
     run_id = new_run_id()
-    with _runs_lock:
-        _runs[run_id] = {"bid_id": bid_id, "status": "running", "error": None}
+    _register_run(run_id, "extract", bid_id)
 
     def worker() -> None:
         try:
@@ -144,6 +150,71 @@ def start_extraction(bid_id: str) -> str:
     return run_id
 
 
+def start_question(question: str, bid_ids: list[str] | None = None) -> str:
+    """Answer a question in the background; return its run_id (poll with `run_status`).
+
+    Questions share a pool of `api.ask_workers` threads. When `api.ask_queue_max`
+    questions are already waiting for a thread, `AskQueueFull` is raised (the API
+    turns it into 429). A question still running after `agents.qa_timeout_s` is
+    reported as failed; its thread finishes in the background and its late
+    result is discarded, because a Python thread cannot be interrupted.
+    """
+    cfg = settings.api
+    with _runs_lock:
+        waiting = sum(1 for e in _runs.values() if e.get("kind") == "qa" and e["status"] == "running")
+        if waiting >= cfg.ask_workers + cfg.ask_queue_max:
+            raise AskQueueFull(waiting)
+        run_id = new_run_id()
+        _runs[run_id] = _new_entry("qa", ",".join(bid_ids or []))
+
+    def worker() -> None:
+        try:
+            answer = ask(question, bid_ids, run_id=run_id)
+        except Exception as exc:  # noqa: BLE001 - a failed run is reported, never raised
+            _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}", only_if_running=True)
+        else:
+            _set_run(run_id, "done", answer=answer, only_if_running=True)
+
+    def watchdog() -> None:
+        _set_run(run_id, "failed", f"timed out after {settings.agents.qa_timeout_s:g} s", only_if_running=True)
+
+    timer = threading.Timer(settings.agents.qa_timeout_s, watchdog)
+    timer.daemon = True
+    timer.start()
+    _pool().submit(worker).add_done_callback(lambda _f: timer.cancel())
+    return run_id
+
+
+def ask_queue_stats() -> dict[str, int]:
+    """Background question load: running (<= workers), queued (waiting for a thread), workers."""
+    with _runs_lock:
+        active = sum(1 for e in _runs.values() if e.get("kind") == "qa" and e["status"] == "running")
+    workers = settings.api.ask_workers
+    return {"running": min(active, workers), "queued": max(0, active - workers), "workers": workers}
+
+
+def shutdown_background() -> None:
+    """Stop accepting background questions and mark the running ones failed (API shutdown)."""
+    global _ask_pool
+    with _ask_pool_lock:
+        pool, _ask_pool = _ask_pool, None
+    if pool is not None:
+        pool.shutdown(wait=False, cancel_futures=True)
+    with _runs_lock:
+        for entry in _runs.values():
+            if entry.get("kind") == "qa" and entry["status"] == "running":
+                entry["status"], entry["error"] = "failed", "server shutting down"
+
+
+def _pool() -> ThreadPoolExecutor:
+    """The shared question pool (created on first use)."""
+    global _ask_pool
+    with _ask_pool_lock:
+        if _ask_pool is None:
+            _ask_pool = ThreadPoolExecutor(max_workers=settings.api.ask_workers, thread_name_prefix="ask")
+        return _ask_pool
+
+
 class ExtractionBusy(RuntimeError):
     """Raised by start_extraction while another run holds the extraction lock."""
 
@@ -153,24 +224,53 @@ class ExtractionBusy(RuntimeError):
         super().__init__(f"an extraction is already running{detail}")
 
 
-def list_runs() -> list[RunInfo]:
-    """Runs started by this API process, newest first."""
+class AskQueueFull(RuntimeError):
+    """Raised by start_question when too many questions are already waiting."""
+
+    def __init__(self, waiting: int) -> None:
+        self.waiting = waiting
+        super().__init__(f"the server is busy answering {waiting} questions; try again in a moment")
+
+
+def _new_entry(kind: str, bid_id: str) -> dict[str, Any]:
+    """A fresh registry entry."""
+    return {"kind": kind, "bid_id": bid_id, "status": "running", "error": None, "answer": None}
+
+
+def _register_run(run_id: str, kind: str, bid_id: str) -> None:
+    """Add a running entry to the registry."""
     with _runs_lock:
-        items = [RunInfo(run_id=rid, bid_id=str(e["bid_id"]), status=e["status"])  # type: ignore[arg-type]
-                 for rid, e in _runs.items()]
+        _runs[run_id] = _new_entry(kind, bid_id)
+
+
+def _run_info(run_id: str, entry: dict[str, Any]) -> RunInfo:
+    """RunInfo for a registry entry (entries without "kind" are extractions)."""
+    return RunInfo(run_id=run_id, bid_id=str(entry.get("bid_id") or ""), status=entry["status"],
+                   kind=entry.get("kind") or "extract")
+
+
+def list_runs() -> list[RunInfo]:
+    """Runs started by this API process (extractions and questions), newest first."""
+    with _runs_lock:
+        items = [_run_info(rid, e) for rid, e in _runs.items()]
     return list(reversed(items))
 
 
 def active_run() -> RunInfo | None:
-    """The run currently holding the extraction lock, if this process knows it."""
-    return next((r for r in list_runs() if r.status == "running"), None)
+    """The extraction currently holding the extraction lock, if this process knows it."""
+    return next((r for r in list_runs() if r.status == "running" and r.kind == "extract"), None)
 
 
-def _set_run(run_id: str, status: str, error: str | None = None) -> None:
-    """Update the registry entry of a background run."""
+def _set_run(run_id: str, status: str, error: str | None = None, answer: Answer | None = None,
+             only_if_running: bool = False) -> None:
+    """Update the registry entry of a background run (optionally only while it is still running)."""
     with _runs_lock:
-        entry = _runs.setdefault(run_id, {"bid_id": "", "status": status, "error": None})
+        entry = _runs.setdefault(run_id, _new_entry("extract", ""))
+        if only_if_running and entry["status"] != "running":
+            return
         entry["status"], entry["error"] = status, error
+        if answer is not None:
+            entry["answer"] = answer
 
 
 def run_status(run_id: str) -> RunStatus:
@@ -179,11 +279,14 @@ def run_status(run_id: str) -> RunStatus:
     with _runs_lock:
         entry = dict(_runs.get(run_id, {}))
     if entry:
-        return RunStatus(run_id=run_id, bid_id=str(entry["bid_id"]), status=entry["status"], steps=steps)
+        info = _run_info(run_id, entry)
+        return RunStatus(run_id=run_id, bid_id=info.bid_id, status=info.status, steps=steps, kind=info.kind,
+                         answer=entry.get("answer"), error=entry.get("error"))
     if not steps:
         raise KeyError(run_id)
     status = "done" if steps[-1].node in _TERMINAL_NODES and steps[-1].error is None else "failed"
-    return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id), status=status, steps=steps)
+    kind = "qa" if any(s.node in ("answer", "validate_answer") for s in steps) else "extract"
+    return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id), status=status, steps=steps, kind=kind)
 
 
 def _bid_of_run(run_id: str) -> str:

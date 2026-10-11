@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { ChatMessage, type ChatEntry } from "@/components/ChatMessage";
 import { EmptyState } from "@/components/States";
@@ -24,21 +25,21 @@ export function AskPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries.length, ask.isPending]);
+  }, [entries.length, ask.pending, ask.label]);
 
   const toggleBid = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const submit = (text: string) => {
     const q = text.trim();
-    if (!q || ask.isPending) return;
+    if (!q || ask.pending) return;
     setEntries((prev) => [...prev, { kind: "question", id: nextId(), text: q }]);
     setQuestion("");
-    ask.mutate(
+    ask.submit(
       { question: q, bid_ids: selected.length ? selected : undefined },
       {
-        onSuccess: (answer) => setEntries((prev) => [...prev, { kind: "answer", id: nextId(), answer }]),
-        onError: (err) => setEntries((prev) => [...prev, { kind: "error", id: nextId(), text: err.message }]),
+        onAnswer: (answer) => setEntries((prev) => [...prev, { kind: "answer", id: nextId(), answer }]),
+        onError: (message) => setEntries((prev) => [...prev, { kind: "error", id: nextId(), text: message }]),
       },
     );
   };
@@ -94,9 +95,19 @@ export function AskPage() {
         {entries.map((entry) => (
           <ChatMessage key={entry.id} entry={entry} />
         ))}
-        {ask.isPending && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Thinking...
+        {ask.pending && (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>{ask.label}...</span>
+            <span className="font-mono text-xs tabular-nums">{ask.elapsedS}s</span>
+            {ask.runId && (
+              <Link
+                to={`/runs/${encodeURIComponent(ask.runId)}`}
+                className="text-xs underline-offset-4 hover:underline"
+              >
+                view trace
+              </Link>
+            )}
           </p>
         )}
         <div ref={bottomRef} />
@@ -109,7 +120,7 @@ export function AskPage() {
               key={q}
               type="button"
               onClick={() => submit(q)}
-              disabled={ask.isPending}
+              disabled={ask.pending}
               className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border bg-card px-3 py-1 text-xs hover:border-primary/60 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:whitespace-normal"
             >
               <Sparkles className="h-3 w-3 shrink-0 text-primary" /> {q}
@@ -122,9 +133,9 @@ export function AskPage() {
             placeholder="Ask a question about the bids..."
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            disabled={ask.isPending}
+            disabled={ask.pending}
           />
-          <Button type="submit" disabled={!question.trim() || ask.isPending} aria-label="Ask">
+          <Button type="submit" disabled={!question.trim() || ask.pending} aria-label="Ask">
             <Send /> <span className="hidden sm:inline">Ask</span>
           </Button>
         </form>

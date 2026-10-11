@@ -113,6 +113,7 @@ class AgentSettings(BaseModel):
     min_confidence: float
     evidence_top_k: int
     widened_top_k: int
+    qa_timeout_s: float = 120.0          # a background question past this is reported as failed
 
 
 class EvalSettings(BaseModel):
@@ -139,6 +140,8 @@ class ApiSettings(BaseModel):
     """FastAPI settings."""
 
     cors_origins: list[str] = []
+    ask_workers: int = 2                 # threads answering background questions
+    ask_queue_max: int = 8               # questions allowed to wait for a thread before 429
 
 
 class EnvSettings(BaseModel):

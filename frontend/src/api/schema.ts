@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Health
-         * @description Liveness plus the bids the engine knows.
+         * @description Liveness, the bids the engine knows and the background question load.
          */
         get: operations["health_health_get"];
         put?: never;
@@ -137,7 +137,7 @@ export interface paths {
         };
         /**
          * Runs
-         * @description Runs started by this API process, newest first (the running one, if any, included).
+         * @description Extractions and questions started by this API process, newest first.
          */
         get: operations["runs_runs_get"];
         put?: never;
@@ -157,7 +157,7 @@ export interface paths {
         };
         /**
          * Run
-         * @description Status and trace steps of a run.
+         * @description Status and trace steps of a run; a finished question also carries its answer.
          */
         get: operations["run_runs__run_id__get"];
         put?: never;
@@ -199,9 +199,29 @@ export interface paths {
         put?: never;
         /**
          * Ask
-         * @description Answer a question with citations.
+         * @description Answer a question with citations (blocks until the answer is ready).
          */
         post: operations["ask_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ask/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Run
+         * @description Start answering a question in the background; poll GET /runs/{run_id} for steps and the answer.
+         */
+        post: operations["ask_run_ask_runs_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -327,6 +347,18 @@ export interface components {
             confidence: number;
             /** Bids */
             bids: string[];
+        };
+        /**
+         * AskQueue
+         * @description Background question load (GET /health).
+         */
+        AskQueue: {
+            /** Running */
+            running: number;
+            /** Queued */
+            queued: number;
+            /** Workers */
+            workers: number;
         };
         /**
          * AskRequest
@@ -539,6 +571,7 @@ export interface components {
             status: string;
             /** Indexed Bids */
             indexed_bids: string[];
+            ask_queue: components["schemas"]["AskQueue"];
         };
         /**
          * IndexRequest
@@ -596,10 +629,16 @@ export interface components {
              * @enum {string}
              */
             status: "running" | "done" | "failed";
+            /**
+             * Kind
+             * @default extract
+             * @enum {string}
+             */
+            kind: "extract" | "qa";
         };
         /**
          * RunStarted
-         * @description POST /extract response.
+         * @description POST /extract and POST /ask/runs response.
          */
         RunStarted: {
             /** Run Id */
@@ -607,7 +646,7 @@ export interface components {
         };
         /**
          * RunStatus
-         * @description Progress of a background extraction run.
+         * @description Progress of a background run: an extraction, or a question (answer filled when done).
          */
         RunStatus: {
             /** Run Id */
@@ -621,6 +660,15 @@ export interface components {
             status: "running" | "done" | "failed";
             /** Steps */
             steps: components["schemas"]["StepLog"][];
+            /**
+             * Kind
+             * @default extract
+             * @enum {string}
+             */
+            kind: "extract" | "qa";
+            answer?: components["schemas"]["Answer"] | null;
+            /** Error */
+            error?: string | null;
         };
         /**
          * SearchHit
@@ -1019,6 +1067,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Answer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_run_ask_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
                 };
             };
             /** @description Validation Error */

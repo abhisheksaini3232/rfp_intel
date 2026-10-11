@@ -113,6 +113,8 @@ export const api = {
   search: (params: SearchParams) =>
     request<SearchResponse>(`/search${toQuery({ ...params })}`),
   ask: (body: AskRequest) => request<Answer>("/ask", jsonInit("POST", body)),
+  /** Start answering in the background; poll `getRun` for progress and the answer. */
+  startAsk: (body: AskRequest) => request<ExtractResponse>("/ask/runs", jsonInit("POST", body)),
   getChunk: (chunkId: string) =>
     request<Chunk>(`/chunks/${encodeURIComponent(chunkId)}`),
   evalRetrieval: () => request<RetrievalEval>("/eval/retrieval"),
