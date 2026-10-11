@@ -20,4 +20,3 @@ __pycache__/
 .pytest_cache/
 node_modules/
 frontend/dist/
-docs/DEMO_VIDEO_GUIDE.pdf
