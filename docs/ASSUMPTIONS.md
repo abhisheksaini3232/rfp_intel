@@ -609,3 +609,18 @@ Each entry: decision, reason, phase it was made in.
     against the real engine, LLM and bids and writes
     `eval/results/smoke_e2e.md`. CLI modes that would open the embedded
     store are checked through the API (the API process holds the store).
+98. **LLM provider fallback.** `llm_fallback` in `config/settings.yaml`
+    names a second provider (Anthropic by default: `claude-haiku-4-5` for the
+    extractors, `claude-opus-5` for reasoning, the current generation per the
+    Claude API reference; the model names are plain config). `rfp_intel/llm.py`
+    routes to it when the primary provider has no key (`LLM_API_KEY` unset)
+    or a call is rejected with an authentication / permission error, and the
+    switch sticks for the process so a bad key is not retried on every call.
+    Only key problems trigger it: timeouts, rate limits and server errors
+    keep their existing handling, because switching providers mid-run for a
+    transient error would double latency and mix model behaviour across one
+    record. The fallback's key comes from `ANTHROPIC_API_KEY` /
+    `OPENAI_API_KEY` in `.env` (`LLM_API_KEY` stays the primary's key), the
+    cost table carries the Anthropic prices, the trace's LLM calls record the
+    provider and the model actually used, and `GET /health` shows
+    `llm_provider`. Tests fake both providers (`tests/test_llm_fallback.py`).

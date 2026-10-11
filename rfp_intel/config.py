@@ -108,6 +108,15 @@ class LLMSettings(BaseModel):
     max_tokens: int
 
 
+class LLMFallbackSettings(BaseModel):
+    """Second provider used when the primary one has no key or rejects it (secrets stay in .env)."""
+
+    enabled: bool = True
+    provider: str = "anthropic"          # openai | anthropic
+    extract_model: str = "claude-haiku-4-5"
+    reason_model: str = "claude-opus-5"
+
+
 class AgentSettings(BaseModel):
     """Multi-agent graph settings."""
 
@@ -152,7 +161,9 @@ class EnvSettings(BaseModel):
     """Values that come from the environment / .env, never from YAML."""
 
     llm_provider: str = "openai"
-    llm_api_key: SecretStr = SecretStr("")
+    llm_api_key: SecretStr = SecretStr("")      # key of llm_provider
+    openai_api_key: SecretStr = SecretStr("")   # OPENAI_API_KEY (used when openai is not llm_provider)
+    anthropic_api_key: SecretStr = SecretStr("")  # ANTHROPIC_API_KEY (used when anthropic is not llm_provider)
     extract_model: str = ""
     reason_model: str = ""
     llm_dev_cache: bool = False
@@ -173,6 +184,7 @@ class Settings(BaseModel):
     retrieval_configs: dict[str, RetrievalOverride]
     reranker: RerankerSettings
     llm: LLMSettings
+    llm_fallback: LLMFallbackSettings = LLMFallbackSettings()
     agents: AgentSettings
     precedence: list[DocType]
     eval: EvalSettings
@@ -204,6 +216,7 @@ class FieldSpec(BaseModel):
     description: str
     search_hints: list[str] = []
     doc_types: list[DocType] | None = None
+    top_k: int | None = None             # evidence passages for this field (default agents.evidence_top_k)
 
     @field_validator("search_hints", mode="before")
     @classmethod
@@ -258,6 +271,8 @@ def _env_settings() -> EnvSettings:
     return EnvSettings(
         llm_provider=os.getenv("LLM_PROVIDER", "openai").strip().lower(),
         llm_api_key=SecretStr(os.getenv("LLM_API_KEY", "").strip()),
+        openai_api_key=SecretStr(os.getenv("OPENAI_API_KEY", "").strip()),
+        anthropic_api_key=SecretStr(os.getenv("ANTHROPIC_API_KEY", "").strip()),
         extract_model=os.getenv("EXTRACT_MODEL", "").strip(),
         reason_model=os.getenv("REASON_MODEL", "").strip(),
         llm_dev_cache=os.getenv("LLM_DEV_CACHE", "0").strip() == "1",

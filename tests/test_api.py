@@ -60,7 +60,8 @@ def _wait_for_run(client: TestClient, run_id: str, timeout: float = 60.0) -> dic
 def test_health_and_lifespan_keep_injected_engine(client):
     body = client.get("/health").json()
     assert body == {"status": "ok", "indexed_bids": [BID],
-                    "ask_queue": {"running": 0, "queued": 0, "workers": settings.api.ask_workers}}
+                    "ask_queue": {"running": 0, "queued": 0, "workers": settings.api.ask_workers},
+                    "llm_provider": settings.env.llm_provider}
     assert isinstance(runtime.get_engine(), FakeEngine)
 
 

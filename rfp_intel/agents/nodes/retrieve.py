@@ -1,8 +1,8 @@
 """Retrieval agent node: the ONLY caller of the search engine.
 
 Extraction: for every field of the task, an EvidenceRequest built from the
-field description and search hints (plus the field's doc_types), searched
-with the bid filter. A second, addendum-only request per field feeds the
+field description and search hints (plus the field's doc_types and optional
+per-field `top_k`), searched with the bid filter. A second, addendum-only request per field feeds the
 Addendum Reconciler. A widened retry uses more query variants, a larger
 top_k and no doc-type filter.
 Q&A: the plan's queries, searched per bid in scope.
@@ -37,7 +37,9 @@ ADDENDUM_TOP_K = 4
 MAX_CHANGE_QUERIES = 3          # changes (2 queries each) a change question may add
 MAX_QA_EVIDENCE = 20
 _ADDENDUM_WORD = re.compile(r"\baddend(?:um|a)\b|\bchange[sd]?\b|\brevis", re.IGNORECASE)
-MAX_QUERIES = 2                 # queries per field; one request = one fused search + one re-rank
+MAX_QUERIES = 3                 # queries per field; one request = one fused search + one re-rank
+MAX_PRIMARY_HINTS = 4           # hints joined to the field name in the first query
+MAX_SECONDARY_HINTS = 6         # remaining hints that form the third query
 # Words that say nothing about the topic of a change question.
 _STOP_TOKENS = frozenset("""a an and are as at be been by did do does for from has have how in is it its of on or
     that the this to was were what when where which who will with after before all any final original current
@@ -61,14 +63,25 @@ def field_queries(spec: FieldSpec, widened: bool = False) -> list[str]:
     query. Widened: every hint as its own query plus synonym expansions.
     """
     hints = list(spec.search_hints)
-    primary = f"{spec.name} {' '.join(hints[:4])}".strip()
+    primary = f"{spec.name} {' '.join(hints[:MAX_PRIMARY_HINTS])}".strip()
     description = " ".join(spec.description.split()[:MAX_HINT_WORDS])
-    queries = [primary, description]
+    secondary = " ".join(hints[MAX_PRIMARY_HINTS:MAX_PRIMARY_HINTS + MAX_SECONDARY_HINTS])
+    queries = [primary, description, secondary]
     if widened:
         queries += hints
         queries = [v for q in queries for v in expand_query(q)]
     limit = MAX_WIDENED_QUERIES if widened else MAX_QUERIES
     return _dedupe(q for q in queries if q.strip())[:limit]
+
+
+def field_top_k(spec: FieldSpec, widened: bool = False) -> int:
+    """Evidence passages for a field: its own `top_k` if set, else the agents setting.
+
+    A widened retry never returns fewer passages than the normal pass.
+    """
+    cfg = settings.agents
+    base = spec.top_k or cfg.evidence_top_k
+    return max(base, cfg.widened_top_k) if widened else base
 
 
 def build_requests(task: Task, widened: bool, only_fields: list[str] | None) -> list[EvidenceRequest]:
@@ -97,7 +110,7 @@ def build_requests(task: Task, widened: bool, only_fields: list[str] | None) -> 
         doc_types = None if widened else spec.doc_types
         filters = task.filters.model_copy(update={"doc_types": doc_types})
         requests.append(EvidenceRequest(field_or_question=name, queries=field_queries(spec, widened),
-                                        filters=filters, top_k=cfg.widened_top_k if widened else cfg.evidence_top_k))
+                                        filters=filters, top_k=field_top_k(spec, widened)))
         addendum_filters = task.filters.model_copy(update={"doc_types": [DocType.ADDENDUM]})
         requests.append(EvidenceRequest(field_or_question=evidence_key(name, addendum=True),
                                         queries=field_queries(spec)[:MAX_ADDENDUM_QUERIES], filters=addendum_filters,

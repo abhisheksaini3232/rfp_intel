@@ -121,7 +121,7 @@ def build_queries(spec: FieldSpec) -> list[str]:
 def _search_field(engine: SearchEngine, bid_id: str, spec: FieldSpec) -> list[SearchHit]:
     """Unique hits for one field across its queries, best score first, capped at top_k."""
     filters = SearchFilters(bid_id=bid_id, doc_types=spec.doc_types)
-    top_k = settings.agents.evidence_top_k
+    top_k = spec.top_k or settings.agents.evidence_top_k
     found: dict[str, SearchHit] = {}
     for query in build_queries(spec):
         for hit in _safe_search(engine, query, filters, top_k):

@@ -36,7 +36,7 @@ class FakeProvider:
 def fake(monkeypatch):
     def install(*replies):
         provider = FakeProvider(replies)
-        monkeypatch.setattr(llm, "_provider", lambda: provider)
+        monkeypatch.setattr(llm, "_provider", lambda name=None: provider)
         return provider
 
     monkeypatch.setattr(settings.env, "llm_dev_cache", False)

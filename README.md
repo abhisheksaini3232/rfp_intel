@@ -49,9 +49,10 @@ pytest -q
 
 ```
 LLM_PROVIDER=openai                # or anthropic
-LLM_API_KEY=...
+LLM_API_KEY=...                    # key of LLM_PROVIDER
 EXTRACT_MODEL=gpt-6-luna           # fast, low-cost: the three extractor agents
 REASON_MODEL=gpt-5.4-mini          # stronger: reconciliation, validation, Q&A, summary
+ANTHROPIC_API_KEY=...              # fallback: used automatically when LLM_API_KEY is missing or rejected
 # LLM_DEV_CACHE=1                  # optional: cache identical LLM calls on disk while developing
 # QDRANT_URL=http://localhost:6333 # only with vector_store.kind: qdrant_server (see "Running in production")
 # RFP_SETTINGS_OVERLAY=config/docker.yaml   # optional yaml merged over config/settings.yaml
@@ -60,6 +61,15 @@ REASON_MODEL=gpt-5.4-mini          # stronger: reconciliation, validation, Q&A, 
 All other settings live in `config/*.yaml` (`settings.yaml`: paths, chunking,
 retrieval, agents, costs; `fields.yaml`: the 20 fields; `synonyms.yaml`:
 query expansion; `ingestion.yaml`: HTML labels, filler patterns, classifier).
+
+**Provider fallback.** `config/settings.yaml` names a second provider
+(`llm_fallback`: Anthropic by default, `claude-haiku-4-5` for the extractors
+and `claude-opus-5` for reasoning). When the primary provider has no key, or
+answers 401/403 to a call, every LLM call for the rest of the process goes to
+the fallback with those models; the switch is logged once and `GET /health`
+reports the active provider in `llm_provider`. Nothing else changes: the same
+prompts, schemas and traces apply. Set the fallback's key in `.env`
+(`ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` when the primary is Anthropic).
 
 ## One-command run
 

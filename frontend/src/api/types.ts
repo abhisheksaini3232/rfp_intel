@@ -174,6 +174,8 @@ export interface Health {
   status: string;
   indexed_bids: string[];
   ask_queue: AskQueue;
+  /** Provider LLM calls go to: the configured one, or the fallback once it kicked in. */
+  llm_provider: string;
 }
 
 export interface BidSummary {

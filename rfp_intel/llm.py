@@ -4,8 +4,11 @@
 - `text(prompt, model, system)` -> (str, Usage)
 
 Provider comes from LLM_PROVIDER (openai | anthropic); models from
-EXTRACT_MODEL / REASON_MODEL. Structured output uses the provider's
-JSON-schema mode. Invalid output is retried `llm.max_json_retries` times with
+EXTRACT_MODEL / REASON_MODEL. When that provider has no key (LLM_API_KEY
+unset) or rejects it (401/403), calls go to the `llm_fallback` provider
+from settings.yaml with its own models, as long as its key is in .env
+(ANTHROPIC_API_KEY / OPENAI_API_KEY). The switch is logged once and sticks
+for the process. Structured output uses the provider's JSON-schema mode. Invalid output is retried `llm.max_json_retries` times with
 the validation error appended; after that, and on timeouts or API errors,
 `LLMError` is raised.
 """
@@ -15,18 +18,21 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, SecretStr, ValidationError
 
 from rfp_intel.config import settings
 from rfp_intel.logging_utils import record_llm_call
 from rfp_intel.schemas import Usage
 
 T = TypeVar("T", bound=BaseModel)
+logger = logging.getLogger("rfp_intel.llm")
 
 # JSON-schema keywords that strict structured-output modes reject; Pydantic
 # still enforces them when the response is validated.
@@ -38,9 +44,17 @@ _UNSUPPORTED_KEYWORDS = {
 # Models that rejected a `temperature` value; it is omitted for them afterwards.
 _NO_TEMPERATURE: set[str] = set()
 
+# Sticky provider fallback state for this process.
+_fallback_active = False
+_fallback_lock = threading.Lock()
+
 
 class LLMError(Exception):
     """An LLM call failed: timeout, API error, refusal or invalid output."""
+
+
+class LLMAuthError(LLMError):
+    """The provider rejected the API key (missing, invalid or not permitted)."""
 
 
 @dataclass
@@ -105,6 +119,77 @@ def strict_json_schema(model_cls: type[BaseModel]) -> tuple[dict, bool]:
     return schema, is_strict
 
 
+# ---------------------------------------------------------------- provider routing
+
+
+def active_provider() -> str:
+    """Name of the provider calls go to right now (primary, or the fallback once it kicked in)."""
+    return _route()[0]
+
+
+def resolve_model(model: str) -> tuple[str, str]:
+    """(provider, model actually called) for a configured model name.
+
+    On the fallback provider REASON_MODEL maps to `llm_fallback.reason_model`
+    and EXTRACT_MODEL to `llm_fallback.extract_model`; any other name gets the
+    reason model.
+    """
+    name, using_fallback = _route()
+    if not using_fallback:
+        return name, model
+    fallback, env = settings.llm_fallback, settings.env
+    if model == env.reason_model:
+        return name, fallback.reason_model or model
+    if model == env.extract_model:
+        return name, fallback.extract_model or model
+    return name, fallback.reason_model or model
+
+
+def reset_fallback() -> None:
+    """Forget a fallback switch (tests)."""
+    global _fallback_active
+    with _fallback_lock:
+        _fallback_active = False
+
+
+def _key_for(provider: str) -> str:
+    """API key of a provider: LLM_API_KEY for the primary one, else <PROVIDER>_API_KEY."""
+    env = settings.env
+    if provider == env.llm_provider and env.llm_api_key.get_secret_value():
+        return env.llm_api_key.get_secret_value()
+    keys: dict[str, SecretStr] = {"openai": env.openai_api_key, "anthropic": env.anthropic_api_key}
+    return keys.get(provider, SecretStr("")).get_secret_value()
+
+
+def _fallback_available() -> bool:
+    """A fallback exists: enabled, a different provider than the primary, and its key is set."""
+    fallback = settings.llm_fallback
+    return fallback.enabled and fallback.provider != settings.env.llm_provider and bool(_key_for(fallback.provider))
+
+
+def _route() -> tuple[str, bool]:
+    """(provider name, whether that is the fallback)."""
+    primary = settings.env.llm_provider
+    if _fallback_active:
+        return settings.llm_fallback.provider, True
+    if not _key_for(primary) and _fallback_available():
+        _activate_fallback(f"no API key for {primary}")
+        return settings.llm_fallback.provider, True
+    return primary, False
+
+
+def _activate_fallback(reason: str) -> None:
+    """Switch this process to the fallback provider (logged once; the key itself is never logged)."""
+    global _fallback_active
+    with _fallback_lock:
+        if _fallback_active:
+            return
+        _fallback_active = True
+    fallback = settings.llm_fallback
+    logger.warning("LLM fallback: %s; using %s (%s / %s) for the rest of this process",
+                   reason, fallback.provider, fallback.extract_model, fallback.reason_model)
+
+
 def compute_cost(model: str, tokens_in: int, tokens_out: int) -> float:
     """USD cost from the `cost` table in settings.yaml (0 for unknown models)."""
     cost = settings.cost
@@ -122,20 +207,28 @@ def _call(
     """One provider call with dev cache, usage accounting and trace recording."""
     if not model:
         raise LLMError("no model configured (set EXTRACT_MODEL / REASON_MODEL in .env)")
-    cache_file = _cache_path(prompt, system, model, schema_name)
+    provider_name, actual_model = resolve_model(model)
+    cache_file = _cache_path(prompt, system, actual_model, schema_name)
     if cache_file is not None and cache_file.exists():
-        record_llm_call(model, Usage(), 0, schema=schema_name, cached=True)
+        record_llm_call(actual_model, Usage(), 0, schema=schema_name, cached=True, provider=provider_name)
         return json.loads(cache_file.read_text(encoding="utf-8"))["text"], Usage()
 
     t0 = time.perf_counter()
-    raw = _provider().complete(prompt, system, model, schema, schema_name)
+    try:
+        raw = _provider(provider_name).complete(prompt, system, actual_model, schema, schema_name)
+    except LLMAuthError as exc:
+        if _fallback_active or not _fallback_available():
+            raise
+        _activate_fallback(f"{provider_name} rejected the API key ({exc})")
+        provider_name, actual_model = resolve_model(model)
+        raw = _provider(provider_name).complete(prompt, system, actual_model, schema, schema_name)
     latency_ms = int((time.perf_counter() - t0) * 1000)
     usage = Usage(
         tokens_in=raw.tokens_in,
         tokens_out=raw.tokens_out,
-        cost_usd=compute_cost(model, raw.tokens_in, raw.tokens_out),
+        cost_usd=compute_cost(actual_model, raw.tokens_in, raw.tokens_out),
     )
-    record_llm_call(model, usage, latency_ms, schema=schema_name, cached=False)
+    record_llm_call(actual_model, usage, latency_ms, schema=schema_name, cached=False, provider=provider_name)
     if cache_file is not None:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(json.dumps({"text": raw.text}), encoding="utf-8")
@@ -150,12 +243,12 @@ def _cache_path(prompt: str, system: str | None, model: str, schema_name: str) -
     return settings.path("storage_dir") / "llm_cache" / f"{key}.json"
 
 
-def _provider() -> Provider:
-    """The provider selected by LLM_PROVIDER."""
-    name = settings.env.llm_provider
-    api_key = settings.env.llm_api_key.get_secret_value()
+def _provider(name: str | None = None) -> Provider:
+    """The provider client for `name` (default: the routed provider)."""
+    name = name or active_provider()
+    api_key = _key_for(name)
     if not api_key:
-        raise LLMError("LLM_API_KEY is not set")
+        raise LLMAuthError(f"no API key for {name} (set LLM_API_KEY, or {name.upper()}_API_KEY for the fallback)")
     if name == "openai":
         return OpenAIProvider(api_key)
     if name == "anthropic":
@@ -268,6 +361,8 @@ class OpenAIProvider:
             raise LLMError(f"OpenAI timeout after {settings.llm.timeout_s}s") from exc
         except self._openai.BadRequestError:
             raise
+        except (self._openai.AuthenticationError, self._openai.PermissionDeniedError) as exc:
+            raise LLMAuthError(f"OpenAI rejected the API key: {type(exc).__name__}") from exc
         except self._openai.APIError as exc:
             raise LLMError(f"OpenAI API error: {type(exc).__name__}: {exc}") from exc
 
@@ -329,5 +424,7 @@ class AnthropicProvider:
             raise LLMError(f"Anthropic timeout after {settings.llm.timeout_s}s") from exc
         except self._anthropic.BadRequestError:
             raise
+        except (self._anthropic.AuthenticationError, self._anthropic.PermissionDeniedError) as exc:
+            raise LLMAuthError(f"Anthropic rejected the API key: {type(exc).__name__}") from exc
         except self._anthropic.APIError as exc:
             raise LLMError(f"Anthropic API error: {type(exc).__name__}: {exc}") from exc

@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from rfp_intel import services
+from rfp_intel import llm, services
 from rfp_intel.agents.runtime import close_engine, get_engine
 from rfp_intel.config import settings
 from rfp_intel.schemas import (
@@ -128,6 +128,7 @@ class Health(BaseModel):
     status: str
     indexed_bids: list[str]
     ask_queue: AskQueue
+    llm_provider: str                    # provider calls go to (the fallback once it kicked in)
 
 
 @asynccontextmanager
@@ -189,7 +190,7 @@ async def _unhandled_error(_request: Request, exc: Exception) -> JSONResponse:
 def health() -> Health:
     """Liveness, the bids the engine knows and the background question load."""
     return Health(status="ok", indexed_bids=list(get_engine().known_bids()),
-                  ask_queue=AskQueue(**services.ask_queue_stats()))
+                  ask_queue=AskQueue(**services.ask_queue_stats()), llm_provider=llm.active_provider())
 
 
 @app.get("/metrics", response_model=Metrics)
