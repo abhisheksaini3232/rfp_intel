@@ -1439,11 +1439,11 @@
       "differs": true
     }
   ],
-  "narrative": "Bid1 is Dallas Independent School District’s solicitation for student and staff computing devices, while Bid2 is the State of Maryland Treasurer’s Office procurement for Dell laptops with extended warranty. Bid1 has the later due date, July 9, 2024 at 2:00 PM CST, and Bid2 is due earlier on 06/10/2024 at 02:00 PM EDT. Submission is more flexible in Bid1 because electronic iSupplier submissions are preferred but sealed paper submissions are also allowed, whereas Bid2 requires submission through eMMA and rejects email, fax, U.S. Mail, and hand delivery. Bid1 has a defined three-year term with two one-year extensions, while Bid2 only states a 90-day proposal validity period and no contract duration or renewal options. Bid1 requires a much larger and broader documentation package, including signed addenda and multiple forms, while Bid2 lists only a few documents such as Contract_Affidavit.pdf, Mercury_Affidavit.pdf, invoice(s), and proof of delivery. Bid1 also has more detailed deployment and product specification requirements, including installation services, device setup, and multiple product categories, while Bid2 is narrower and centers on Dell Latitude 5550 laptops and Dell Thunderbolt 4 docks. Based only on the stated requirements, Bid2 looks simpler to respond to because it has fewer product lines and a lighter documentation burden, even though it has a stricter submission channel.",
+  "narrative": "Bid1 is Dallas Independent School District’s solicitation for student and staff computing devices, while Bid2 is the State of Maryland Treasurer’s Office procurement for Dell laptops with extended warranty. Bid1 has a later due date of 2024-07-09 14:00 CST, includes a pre-bid meeting, and allows either electronic submission through iSupplier or manual sealed-envelope submission; Bid2 is due earlier on 2024-06-10 14:00 EDT, has no pre-bid meeting listed, and requires submission through eMMA only. Bid1 sets a three-year agreement with two one-year extensions, while Bid2 only states that proposals/quotes must remain valid for at least 90 days after the due date. Delivery is also different: Bid1 has no fixed delivery date and says deliveries will be coordinated later, while Bid2 requires delivery within 45 days of award to a specified Annapolis address. Bid1 has a much heavier documentation package, including signed offer/proposal, MWBE forms, W9, Form 1295, references, signed addenda, and several conditional items, whereas Bid2 lists Contract_Affidavit.pdf, Mercury_Affidavit.pdf, invoice(s), and proof of delivery. Product requirements are broader and more varied in Bid1, covering multiple student and staff device categories and deployment services, while Bid2 is narrower and centered on Dell Latitude 5550 laptops and Dell Thunderbolt 4 Dock units. Based only on the stated values, Bid2 looks simpler to respond to because it has fewer product types and a shorter documentation list, even though it has a tighter submission deadline and a mandatory eMMA submission path.",
   "highlights": [
     {
       "field": "Bid Number",
-      "note": "Bid1: JA-207652; SOURCING #168884; 00004079100. Bid2: E20P4600040; BPM044557; 00004079359.",
+      "note": "Bid1 is JA-207652; SOURCING #168884; 00004079100, while Bid2 is E20P4600040; BPM044557; 00004079359.",
       "sources": [
         {
           "file": "Student and Staff Computing Devices __SOURCING #168884__ - Bid Information - {3} _ BidNet Direct.html",
@@ -1479,7 +1479,7 @@
     },
     {
       "field": "Title",
-      "note": "Bid1: Student and Staff Computing Devices. Bid2: Dell Laptops w/Extended Warranty.",
+      "note": "Bid1 is titled Student and Staff Computing Devices, while Bid2 is titled Dell Laptops w/Extended Warranty.",
       "sources": [
         {
           "file": "Student and Staff Computing Devices __SOURCING #168884__ - Bid Information - {3} _ BidNet Direct.html",
@@ -1497,7 +1497,7 @@
     },
     {
       "field": "Due Date",
-      "note": "Bid1: 2024-07-09 14:00 CST. Bid2: 2024-06-10 14:00 EDT.",
+      "note": "Bid1 is due 2024-07-09 14:00 CST, while Bid2 is due 2024-06-10 14:00 EDT.",
       "sources": [
         {
           "file": "Addendum 2 RFP JA-207652 Student and Staff Computing Devices.pdf",
@@ -1515,7 +1515,7 @@
     },
     {
       "field": "Bid Submission Type",
-      "note": "Bid1: Electronic submissions via the iSupplier portal are preferred; manual paper submissions are also permitted in a sealed envelope; fax and email submissions are not accepted. Bid2: Submit bids through the State's eMaryland Marketplace Advantage (eMMA) e-Procurement system; bids will not be accepted by email, fax, U.S. Mail, or hand delivery.",
+      "note": "Bid1 prefers electronic submissions via the iSupplier portal but also permits manual paper submissions in a sealed envelope, while Bid2 requires submission through the State's eMaryland Marketplace Advantage (eMMA) e-Procurement system only.",
       "sources": [
         {
           "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
@@ -1539,7 +1539,7 @@
     },
     {
       "field": "Term of Bid",
-      "note": "Bid1: The term is a three (3) year agreement with two (2) successive one (1) year extensions, not to exceed five (5) years total. Bid2: Proposals/quotes must be valid for at least 90 days after the set due date.",
+      "note": "Bid1 is a three (3) year agreement with two (2) successive one (1) year extensions, while Bid2 only requires proposals/quotes to be valid for at least 90 days after the due date.",
       "sources": [
         {
           "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
@@ -1556,8 +1556,20 @@
       ]
     },
     {
+      "field": "Pre Bid Meeting",
+      "note": "Bid1 has a June 10, 2024 at 2:00 PM CST TEAMS pre-bid meeting, while Bid2 is Not found in documents.",
+      "sources": [
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 2,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:2:1",
+          "quote": "A pre-proposal meeting will be held at 2:00 PM CST via TEAMS video conference on June 10,\n2024. Please submit (in writing) any questions regarding this RFP. Only written questions will be\nconsidered. It is highly encouraged that all potential proposers participate and attend the preproposal."
+        }
+      ]
+    },
+    {
       "field": "Delivery Date",
-      "note": "Bid1: No fixed delivery date is stated; Dallas ISD expects to request quotes for different projects starting in September of 2024 and deliveries are to varied locations. Bid2: Delivery within 45 days of Award; 80 Calvert Street, Room 109 Annapolis, MD 21401.",
+      "note": "Bid1 has no fixed delivery date and says deliveries will be coordinated later, while Bid2 requires delivery within 45 days of Award to 80 Calvert Street, Room 109 Annapolis, MD 21401.",
       "sources": [
         {
           "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
@@ -1593,7 +1605,7 @@
     },
     {
       "field": "Any Additional Documentation Required",
-      "note": "Bid1: Signed Offer / Proposal; MWBE Forms; W9 Form; Form 1295; Three business references; Addendum 1; Addendum 2; Catalog or price list; Pertinent literature/documentation; Credit application or similar documentation if required; Factory-authorized repair and maintenance certifications for resellers; Insurance form / certificate of insurance/bond; Letter of Intent to Perform/Contract as an M/WBE Subcontractor when applicable; M/WBE Pay Activity Report; and joint venture materials if submitting as a joint venture. Bid2: Contract_Affidavit.pdf; Mercury_Affidavit.pdf; Invoice(s); Proof of delivery (packing slip or delivery confirmation, and equipment serial numbers).",
+      "note": "Bid1 requires a signed offer/proposal, MWBE Forms, W9, Form 1295, three business references, signed Addendum 1 and Addendum 2, and other conditional items; Bid2 lists Contract_Affidavit.pdf, Mercury_Affidavit.pdf, Invoice(s), and Proof of delivery.",
       "sources": [
         {
           "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
@@ -1722,62 +1734,8 @@
           "quote": "Invoice(s) shall be submitted within 10 days of delivering the\nequipment and shall include at a minimum the following:\n• Contractor name, mailing address, social security number\nor Federal Tax ID number, and phone number.\n• Reference the States assigned PORFP number.\n• Date, invoice number and amoun"
         }
       ]
-    },
-    {
-      "field": "MFG for Registration",
-      "note": "Bid1: No manufacturer is named; resellers must submit factory-authorized repair and maintenance certifications, equipment must be new and current model production, and warranties must be official manufacturer warranties. Bid2: Dell — the Master Contractor must be an authorized reseller; the State may request a Letter of Authorization (LOA) from the Manufacturer or Distributor.",
-      "sources": [
-        {
-          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
-          "page": 3,
-          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:3:7",
-          "quote": "For proposing vendors who are resellers, a copy of all factory-authorized repair and maintenance\ncertifications must be submitted with each proposal."
-        },
-        {
-          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
-          "page": 3,
-          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:3:8",
-          "quote": "All equipment must be new and of the manufacturer's current model in production at the time of each order\nexecuted over the life of the contracts resulting from this RFP."
-        },
-        {
-          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
-          "page": 3,
-          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:3:27",
-          "quote": "Answer: Yes."
-        },
-        {
-          "file": "PORFP_-_Dell_Laptop_Final.pdf",
-          "page": 2,
-          "chunk_id": "3109ebe6dd4db921dfb1e2e637e92feb4ca74b7c:2:11",
-          "quote": "The Master Contractor must be an authorized reseller for Dell. The state reserves the right to request a Letter of Authorization (LOA) from the Manufacturer or Distributor."
-        }
-      ]
-    },
-    {
-      "field": "Product",
-      "note": "Bid1: Multiple categories are listed, including student Chromebooks, student Windows laptops, student tablets, staff laptops, staff desktops, and display monitors with target quantities. Bid2: Dell Latitude 5550 — 30; Dell Thunderbolt 4 Dock – WD22TB4 — 30.",
-      "sources": [
-        {
-          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
-          "page": 35,
-          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:35:160",
-          "quote": "Line | Item, Rev | Target Quantity | Unit | Unit Price | Amount | Bid Minimum Release Amount\n15.01 Tier 1 Small Student Chromebook Laptop (Touch) | 50,000 | Each\n15.02 Tier 2 Large Student Chromebook Laptop (Non- Touch) | 50,000 | Each\n16 STUDENT LAPTOPS - FOR EVALUATION PURPOSES (Pricing required t"
-        },
-        {
-          "file": "PORFP_-_Dell_Laptop_Final.pdf",
-          "page": 3,
-          "chunk_id": "3109ebe6dd4db921dfb1e2e637e92feb4ca74b7c:3:13",
-          "quote": "1. SI# CC7802 Dell Latitude 5550 | SI# CC7802 Dell Latitude 5550 *Laptops must be Microsoft Copilot ready* | SI# CC7802 | 30 | 06/10/2024"
-        },
-        {
-          "file": "PORFP_-_Dell_Laptop_Final.pdf",
-          "page": 3,
-          "chunk_id": "3109ebe6dd4db921dfb1e2e637e92feb4ca74b7c:3:14",
-          "quote": "2. Dell Thunderbolt 4 Dock – WD22TB4 | Dell Thunderbolt 4 Dock – WD22TB4 | WD22TB4 | 30 | 06/10/2024"
-        }
-      ]
     }
   ],
-  "generated_at": "2026-10-11T13:25:20.344+00:00",
-  "run_id": "20261011T132511Z-90d4aa"
+  "generated_at": "2026-10-11T13:52:17.069+00:00",
+  "run_id": "20261011T135212Z-724e7a"
 }

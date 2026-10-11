@@ -1,7 +1,7 @@
 import { useCallback, useId, useRef, useState, type DragEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Upload, X } from "lucide-react";
+import { FileText, Loader2, Upload, X } from "lucide-react";
 import { api } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,13 @@ import { cn } from "@/lib/utils";
 
 const BID_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const ACCEPTED = [".pdf", ".html", ".htm"];
+
+/** File size as a short human string, e.g. "1.2 MB". */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function isAccepted(file: File): boolean {
   const name = file.name.toLowerCase();
@@ -88,7 +95,7 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!upload.isPending) onOpenChange(o); }}>
       <DialogContent>
-        <DialogHeader>
+        <DialogHeader className="pr-6">
           <DialogTitle>Add bid</DialogTitle>
           <DialogDescription>
             Choose a bid id and drop the RFP, addenda and forms (PDF or HTML). The files are saved
@@ -96,7 +103,7 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <form
-          className="space-y-4"
+          className="min-w-0 space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
             if (canSubmit) upload.mutate();
@@ -160,21 +167,41 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
           </div>
 
           {files.length > 0 && (
-            <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
-              {files.map((f) => (
-                <li key={f.name} className="flex items-center justify-between gap-2 rounded-md bg-muted px-2 py-1">
-                  <span className="truncate">{f.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${f.name}`}
-                    className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                    onClick={() => setFiles((prev) => prev.filter((x) => x.name !== f.name))}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {files.length} file{files.length === 1 ? "" : "s"} selected
+                </span>
+                <button
+                  type="button"
+                  className="rounded px-1 hover:text-foreground"
+                  onClick={() => setFiles([])}
+                  disabled={upload.isPending}
+                >
+                  Clear all
+                </button>
+              </div>
+              <ul className="max-h-48 space-y-1 overflow-y-auto pr-1 text-sm">
+                {files.map((f) => (
+                  <li key={f.name} className="flex min-w-0 items-center gap-2 rounded-md bg-muted px-2.5 py-1.5">
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate" title={f.name}>
+                      {f.name}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatSize(f.size)}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${f.name}`}
+                      className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => setFiles((prev) => prev.filter((x) => x.name !== f.name))}
+                      disabled={upload.isPending}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <DialogFooter>
