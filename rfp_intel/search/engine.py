@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Protocol
@@ -65,6 +66,9 @@ class SearchEngine:
         self._vectors: VectorStore | None = None
         self._query_cache: dict[str, list[float]] = {}
         self._answer_cache: AnswerCache | None = None
+        # Serializes index_bid / remove_bid: both read the manifest, mutate the
+        # stores and write it back, so two at once would lose one bid's entry.
+        self._write_lock = threading.Lock()
 
     @property
     def vectors(self) -> VectorStore:
@@ -115,37 +119,45 @@ class SearchEngine:
 
     def remove_bid(self, bid_id: str) -> bool:
         """Drop a bid's chunks from both stores and the manifest; False when it was not indexed."""
-        manifest = self._read_manifest()
-        if bid_id not in manifest:
-            return False
-        self.vectors.delete_by_bid(bid_id)
-        self.bm25.delete(bid_id)
-        del manifest[bid_id]
-        self._write_manifest(manifest)
+        with self._write_lock:
+            manifest = self._read_manifest()
+            if bid_id not in manifest:
+                return False
+            self.vectors.delete_by_bid(bid_id)
+            self.bm25.delete(bid_id)
+            del manifest[bid_id]
+            self._write_manifest(manifest)
         logger.info("removed bid %s from the index", bid_id)
         return True
 
     def index_bid(self, folder: Path, force: bool = False) -> IndexStats:
-        """Index a bid folder; unchanged bids are skipped, changed bids are rebuilt."""
+        """Index a bid folder; unchanged bids are skipped, changed bids are rebuilt.
+
+        Held under `_write_lock` for the whole operation: the manifest is read at
+        the start and written at the end, so two concurrent indexes (two uploads,
+        or an upload and a CLI run) would otherwise drop one bid's entry and leave
+        it indexed but invisible to `known_bids`.
+        """
         started = time.perf_counter()
         folder = Path(folder)
         bid_id = folder.name
         state = {"files": _file_hashes(folder), "config": _index_config_key()}
-        manifest = self._read_manifest()
-        if not force and manifest.get(bid_id) == state:
-            return IndexStats(bid_id=bid_id, documents=len(state["files"]), chunks_added=0,
-                              chunks_total=self.vectors.count(bid_id), skipped=True,
-                              seconds=round(time.perf_counter() - started, 2))
+        with self._write_lock:
+            manifest = self._read_manifest()
+            if not force and manifest.get(bid_id) == state:
+                return IndexStats(bid_id=bid_id, documents=len(state["files"]), chunks_added=0,
+                                  chunks_total=self.vectors.count(bid_id), skipped=True,
+                                  seconds=round(time.perf_counter() - started, 2))
 
-        documents = load_bid_folder(folder)
-        chunks = [chunk for doc in documents for chunk in chunk_document(doc)]
-        texts = [embed_text(chunk) for chunk in chunks]
-        vectors = self.embedder.embed_documents(texts)
-        self.vectors.delete_by_bid(bid_id)
-        self.vectors.upsert(chunks, vectors)
-        self.bm25.save(bid_id, chunks, texts)
-        manifest[bid_id] = state
-        self._write_manifest(manifest)
+            documents = load_bid_folder(folder)
+            chunks = [chunk for doc in documents for chunk in chunk_document(doc)]
+            texts = [embed_text(chunk) for chunk in chunks]
+            vectors = self.embedder.embed_documents(texts)
+            self.vectors.delete_by_bid(bid_id)
+            self.vectors.upsert(chunks, vectors)
+            self.bm25.save(bid_id, chunks, texts)
+            manifest[bid_id] = state
+            self._write_manifest(manifest)
         return IndexStats(
             bid_id=bid_id,
             documents=len(documents),
