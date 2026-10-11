@@ -3,11 +3,18 @@ import { Building2, CalendarDays, FileStack, Loader2 } from "lucide-react";
 import type { BidSummary } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRuns } from "@/hooks/useExtractRun";
 import { formatDate } from "@/lib/utils";
 
 /** Summary card for one bid on the Bids page. */
 export function BidCard({ bid }: { bid: BidSummary }) {
   const v = bid.validation;
+  // An upload starts the extraction by itself, so the card reflects a run it
+  // did not start. react-query dedupes this with the other GET /runs callers.
+  const runs = useRuns();
+  const extracting = Boolean(
+    runs.data?.some((r) => r.status === "running" && r.kind === "extract" && r.bid_id === bid.bid_id),
+  );
   return (
     <Link
       to={`/bids/${encodeURIComponent(bid.bid_id)}`}
@@ -21,9 +28,10 @@ export function BidCard({ bid }: { bid: BidSummary }) {
               <p className="font-mono text-xs text-muted-foreground">{bid.bid_id}</p>
               <CardTitle className="mt-1 line-clamp-2">{bid.title ?? "Untitled bid"}</CardTitle>
             </div>
-            {bid.indexing ? (
+            {bid.indexing || extracting ? (
               <Badge variant="secondary" className="shrink-0 gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" /> indexing
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {bid.indexing ? "indexing" : "extracting"}
               </Badge>
             ) : (
               <Badge variant={bid.indexed ? "accent" : "secondary"} className="shrink-0">

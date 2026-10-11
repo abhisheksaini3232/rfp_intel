@@ -68,7 +68,7 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
       void queryClient.invalidateQueries({ queryKey: bidsQueryKey });
       const id = started.bid_id;
       toast.success(`Uploaded ${started.documents} file${started.documents === 1 ? "" : "s"} to ${id}`, {
-        description: "Indexing in the background. The card shows when it is ready to extract.",
+        description: "Indexing in the background; the extraction starts on its own when it finishes.",
         action: {
           label: "Open bid",
           onClick: () => navigate(`/bids/${encodeURIComponent(id)}`),
@@ -107,8 +107,8 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
         <DialogHeader className="pr-6">
           <DialogTitle>Add bid</DialogTitle>
           <DialogDescription>
-            Choose a bid id and drop the RFP, addenda and forms (PDF or HTML). Indexing starts as
-            soon as the files are uploaded and continues in the background, so you can keep working.
+            Choose a bid id and drop the RFP, addenda and forms (PDF or HTML). Indexing starts as soon
+            as the files are uploaded and the extraction follows automatically, both in the background.
           </DialogDescription>
         </DialogHeader>
         <form

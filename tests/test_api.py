@@ -14,6 +14,7 @@ from rfp_intel import services
 from rfp_intel.agents import runtime
 from rfp_intel.api.server import app
 from rfp_intel.config import field_names, settings
+from rfp_intel.schemas import IndexStats
 from tests.graph_fakes import FakeEngine, ScriptedLLM, install
 
 BID = "BidT"
@@ -37,7 +38,14 @@ def workspace(tmp_path, monkeypatch):
     engine.bm25 = SimpleNamespace(_load=lambda bid: (engine.chunks, []) if bid == BID else ([], []))
     runtime.set_engine(engine)
     install(monkeypatch, ScriptedLLM())
+    # Each test starts with a clean registry AND a free extraction slot. A
+    # previous test's daemon thread can still hold the single-extraction lock,
+    # which would silently skip anything needing it (such as auto-extract), so
+    # wait for it to finish rather than swapping the lock out from under it.
+    assert services._extract_lock.acquire(timeout=30), "an extraction from an earlier test never finished"
+    services._extract_lock.release()
     services._runs.clear()
+    services._indexing.clear()
     yield tmp_path
     runtime.set_engine(None)
 
@@ -223,6 +231,72 @@ def test_upload_returns_before_indexing_finishes_and_reports_progress(client, wo
     release.set()
     _wait_for_run(client, ok.json()["run_id"])
     assert not any(b["indexing"] for b in client.get("/bids").json())
+
+
+def _upload(client, bid_id: str = "AutoBid", name: str = "a.pdf", body: bytes = b"%PDF"):
+    return client.post("/bids", data={"bid_id": bid_id},
+                       files=[("files", (name, body, "application/pdf"))])
+
+
+def _runs_for(client, bid_id: str, kind: str = "extract") -> list[dict]:
+    return [r for r in client.get("/runs").json() if r["bid_id"] == bid_id and r["kind"] == kind]
+
+
+def test_an_upload_starts_the_extraction_once_indexing_finishes(client, workspace):
+    """api.auto_extract_after_upload: the bid ends up extracted with no click."""
+    ok = _upload(client)
+    assert ok.status_code == 202
+    _wait_for_run(client, ok.json()["run_id"])            # the index run
+
+    extract_runs = _wait_until(lambda: _runs_for(client, "AutoBid"))
+    assert len(extract_runs) == 1, "exactly one extraction is auto-started"
+    _wait_for_run(client, extract_runs[0]["run_id"])
+    assert client.get("/bids/AutoBid/record").status_code == 200
+
+
+def test_auto_extract_can_be_turned_off(client, workspace, monkeypatch):
+    monkeypatch.setattr(settings.api, "auto_extract_after_upload", False)
+    ok = _upload(client, "ManualBid")
+    _wait_for_run(client, ok.json()["run_id"])
+    time.sleep(0.5)
+    assert _runs_for(client, "ManualBid") == [], "nothing runs until the user asks"
+
+
+def test_auto_extract_is_skipped_while_another_extraction_holds_the_lock(client, workspace):
+    """The upload still indexes; the extraction is simply not started."""
+    assert services._extract_lock.acquire(blocking=False), "the slot should be free at test start"
+    try:
+        ok = _upload(client, "BusyBid")
+        assert ok.status_code == 202
+        index_run = _wait_for_run(client, ok.json()["run_id"])
+        assert index_run["status"] == "done", "indexing still happened"
+        time.sleep(0.5)
+        assert _runs_for(client, "BusyBid") == [], "the single extraction slot was taken"
+    finally:
+        services._extract_lock.release()
+
+
+def test_an_unchanged_re_upload_does_not_extract_again(client, workspace):
+    """`skipped` means the folder did not change, so there is nothing new to extract."""
+    unchanged = IndexStats(bid_id=BID, documents=1, chunks_added=0, chunks_total=9, skipped=True)
+    services._auto_extract(BID, unchanged)
+    time.sleep(0.3)
+    assert _runs_for(client, BID) == [], "an unchanged folder is not re-extracted"
+
+    changed = IndexStats(bid_id=BID, documents=1, chunks_added=9, chunks_total=9, skipped=False)
+    services._auto_extract(BID, changed)
+    assert len(_wait_until(lambda: _runs_for(client, BID))) == 1, "a changed folder is extracted"
+
+
+def _wait_until(get, timeout: float = 30.0):
+    """Poll `get` until it returns something truthy."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        value = get()
+        if value:
+            return value
+        time.sleep(0.1)
+    raise AssertionError(f"condition not met within {timeout}s")
 
 
 def test_a_failing_index_is_reported_on_the_run_not_raised(client, workspace, monkeypatch):

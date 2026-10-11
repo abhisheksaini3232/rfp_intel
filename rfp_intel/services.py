@@ -248,6 +248,7 @@ def start_indexing(folder: Path) -> str:
         _indexing[bid_id] = run_id
 
     def worker() -> None:
+        stats = None
         try:
             stats = index_bid(folder)
             _set_run(run_id, "done")
@@ -258,9 +259,33 @@ def start_indexing(folder: Path) -> str:
         finally:
             with _runs_lock:
                 _indexing.pop(bid_id, None)
+        # Only after the index run is marked done, so the UI sees indexing
+        # finish before the extraction appears.
+        if stats is not None:
+            _auto_extract(bid_id, stats)
 
     threading.Thread(target=worker, name=f"index-{bid_id}", daemon=True).start()
     return run_id
+
+
+def _auto_extract(bid_id: str, stats: IndexStats) -> None:
+    """Start the extraction for a freshly uploaded bid (api.auto_extract_after_upload).
+
+    Every failure here only skips the auto-start: the upload itself succeeded,
+    and the user can still press Run extraction.
+    """
+    if not settings.api.auto_extract_after_upload:
+        return
+    if stats.skipped:
+        logger.info("auto-extract skipped for %s: the folder was unchanged", bid_id)
+        return
+    try:
+        run_id = start_extraction(bid_id)
+        logger.info("auto-extract started for %s as run %s", bid_id, run_id)
+    except ExtractionBusy as busy:
+        logger.info("auto-extract skipped for %s: %s", bid_id, busy)
+    except Exception as exc:  # noqa: BLE001 - never turn this into an upload failure
+        logger.warning("auto-extract could not start for %s: %s: %s", bid_id, type(exc).__name__, exc)
 
 
 def indexing_bids() -> set[str]:

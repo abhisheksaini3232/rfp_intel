@@ -155,6 +155,7 @@ class ApiSettings(BaseModel):
     ask_workers: int = 2                 # threads answering background questions
     ask_queue_max: int = 8               # questions allowed to wait for a thread before 429
     max_question_chars: int = 1000       # longer questions are rejected with 422
+    auto_extract_after_upload: bool = True   # an upload runs the extraction once indexing finishes
 
 
 class EnvSettings(BaseModel):

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2, Play, Square, Trash2 } from "lucide-react";
 import type { AddendumChange, BidRecord, DocumentSummary, FieldValue } from "@/api/types";
@@ -61,17 +61,8 @@ export function BidDetailPage() {
   const run = useExtractRun(bidId);
   const goNoGo = useGoNoGo(bidId);
   const runGoNoGo = useRunGoNoGo(bidId);
-  const autoStarted = useRef(false);
-
-  // "Run extraction" offered from the upload toast arrives as ?extract=1.
-  useEffect(() => {
-    if (params.get("extract") === "1" && !autoStarted.current) {
-      autoStarted.current = true;
-      run.start();
-      params.delete("extract");
-      setParams(params, { replace: true });
-    }
-  }, [params, setParams, run]);
+  // An upload starts the extraction on the server, so no auto-start is needed
+  // here: useExtractRun adopts a run already in progress for this bid.
 
   useEffect(() => {
     if (!run.startError) return;

@@ -31,4 +31,5 @@ cost:                         # USD per 1k tokens, per model name; unknown model
 cache: {enabled: true, similarity_threshold: 0.95}   # semantic answer cache (invalidated when a bid is re-indexed)
 api: {cors_origins: ["http://localhost:5173", "http://localhost:5174"],
       ask_workers: 2, ask_queue_max: 8,   # background questions: threads, and waiting runs before 429
-      max_question_chars: 1000}
+      max_question_chars: 1000,
+      auto_extract_after_upload: true}    # POST /bids starts the extraction once indexing finishes
