@@ -728,3 +728,16 @@ Each entry: decision, reason, phase it was made in.
     line numbers of a price sheet, and Payment Terms excludes clauses about a
     vendor paying its own subcontractors.
 
+106. **Removing a bid tolerates Windows file locks and a busy index.** A
+    freshly uploaded PDF can be held open for a few seconds by a virus
+    scanner, the search indexer or a PDF viewer; deleting it then raises
+    `PermissionError` (WinError 32), which previously surfaced as a raw 500
+    and left the bid half-removed. `remove_bid` now retries a locked delete
+    for up to 6 s (0.5 s interval) and, if the lock persists, raises a
+    RuntimeError naming the path, which the API answers as 409 so the UI
+    shows "in use, try again" instead of a stack trace. Likewise
+    `SearchEngine.remove_bid` no longer waits indefinitely behind the write
+    lock that `index_bid` holds for a whole indexing run: it gives up after
+    5 s with "the index is busy", instead of hanging the DELETE request for
+    minutes. Both timeouts are module constants, not config keys, because no
+    user would tune them.

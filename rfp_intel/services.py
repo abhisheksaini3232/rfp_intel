@@ -18,7 +18,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from rfp_intel.agents.graph import run_comparison, run_extraction, run_go_no_go, run_question
 from rfp_intel.agents.runtime import get_engine
@@ -710,7 +710,8 @@ def remove_bid(bid_id: str) -> RemoveResult:
     """Delete a bid everywhere: index, saved outputs (record, summaries, parsed files) and its data folder.
 
     ValueError for a bad id, FileNotFoundError when the bid is neither on disk
-    nor indexed, RuntimeError while an extraction of it is running.
+    nor indexed, RuntimeError while an extraction of it is running, while the
+    index is busy, or while Windows keeps a file locked after retries.
     """
     if not BID_ID_PATTERN.match(bid_id or ""):
         raise ValueError("bid_id must match ^[A-Za-z0-9_-]{1,64}$")
@@ -725,9 +726,36 @@ def remove_bid(bid_id: str) -> RemoveResult:
         raise FileNotFoundError(f"unknown bid: {bid_id}")
     removed_files = _remove_outputs(bid_id)
     if folder.is_dir():
-        shutil.rmtree(folder)
+        _delete_retrying(lambda: shutil.rmtree(folder), folder)
     logger.info("removed bid %s (indexed=%s, outputs=%d, folder=%s)", bid_id, indexed, removed_files, folder)
     return RemoveResult(bid_id=bid_id, indexed=indexed, outputs_removed=removed_files, folder_removed=True)
+
+
+# On Windows a freshly written file can be held open briefly by a virus
+# scanner, the search indexer or a PDF viewer; deleting it then raises
+# PermissionError (WinError 32). Such locks usually clear within seconds.
+_LOCK_RETRY_SECONDS = 6.0
+_LOCK_RETRY_INTERVAL = 0.5
+
+
+def _delete_retrying(delete: Callable[[], None], target: Path) -> None:
+    """Run a no-arg filesystem delete, retrying while the OS reports a file in use.
+
+    If the lock outlasts the retries, raise RuntimeError with a message naming
+    the path, so the API answers 409 ("try again") instead of a bare 500.
+    """
+    deadline = time.monotonic() + _LOCK_RETRY_SECONDS
+    while True:
+        try:
+            delete()
+            return
+        except PermissionError as exc:
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"could not delete {target}: a file is in use by another program "
+                    f"(a PDF viewer or a scan in progress); close it and try again"
+                ) from exc
+            time.sleep(_LOCK_RETRY_INTERVAL)
 
 
 def _remove_outputs(bid_id: str) -> int:
@@ -736,12 +764,12 @@ def _remove_outputs(bid_id: str) -> int:
     count = 0
     for path in list(out_dir.glob(f"{bid_id}.json")) + list(out_dir.glob(f"{bid_id}_*.json")) \
             + list(out_dir.glob(f"{bid_id}_*.md")):
-        path.unlink()
+        _delete_retrying(path.unlink, path)
         count += 1
     parsed = out_dir / "parsed" / bid_id
     if parsed.is_dir():
         count += sum(1 for p in parsed.iterdir() if p.is_file())
-        shutil.rmtree(parsed)
+        _delete_retrying(lambda: shutil.rmtree(parsed), parsed)
     return count
 
 

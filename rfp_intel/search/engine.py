@@ -36,6 +36,7 @@ from rfp_intel.search.vector_store import VectorStore, chunk_key
 
 logger = logging.getLogger(__name__)
 _QUERY_CACHE_SIZE = 512          # memoised query embeddings (query text -> vector)
+_REMOVE_LOCK_TIMEOUT = 5.0       # seconds remove_bid waits for an index in progress before giving up
 
 
 class EmbedderLike(Protocol):
@@ -118,8 +119,15 @@ class SearchEngine:
         return sorted(key for key in self._read_manifest() if not key.startswith("_"))
 
     def remove_bid(self, bid_id: str) -> bool:
-        """Drop a bid's chunks from both stores and the manifest; False when it was not indexed."""
-        with self._write_lock:
+        """Drop a bid's chunks from both stores and the manifest; False when it was not indexed.
+
+        `index_bid` holds the write lock for a whole (possibly minutes-long)
+        indexing run, so rather than hang a DELETE request behind it, give up
+        after a short wait and raise RuntimeError ("busy, try again").
+        """
+        if not self._write_lock.acquire(timeout=_REMOVE_LOCK_TIMEOUT):
+            raise RuntimeError("the index is busy (a bid is being indexed); try again when it finishes")
+        try:
             manifest = self._read_manifest()
             if bid_id not in manifest:
                 return False
@@ -127,6 +135,8 @@ class SearchEngine:
             self.bm25.delete(bid_id)
             del manifest[bid_id]
             self._write_manifest(manifest)
+        finally:
+            self._write_lock.release()
         logger.info("removed bid %s from the index", bid_id)
         return True
 

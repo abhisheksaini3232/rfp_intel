@@ -82,6 +82,55 @@ def test_service_errors(workspace):
         services.remove_bid(BID)
 
 
+def test_engine_remove_bid_refuses_instead_of_waiting_behind_an_index(tmp_path, monkeypatch):
+    """A remove during a long index answers 'busy' quickly instead of hanging the request."""
+    from rfp_intel.search import engine as engine_mod
+
+    monkeypatch.setattr(engine_mod, "_REMOVE_LOCK_TIMEOUT", 0.05)
+    engine = SearchEngine(storage_dir=tmp_path / "storage", embedder=FakeEmbedder(), reranker=FakeReranker())
+    try:
+        with engine._write_lock:  # what index_bid holds for a whole indexing run
+            with pytest.raises(RuntimeError, match="busy"):
+                engine.remove_bid("Whatever")
+    finally:
+        engine.close()
+
+
+def test_locked_file_is_retried_then_reported_as_in_use(workspace, monkeypatch):
+    """A transient Windows file lock is retried; a persistent one becomes a clear RuntimeError."""
+    monkeypatch.setattr(services, "_LOCK_RETRY_SECONDS", 0.2)
+    monkeypatch.setattr(services, "_LOCK_RETRY_INTERVAL", 0.01)
+    calls = {"n": 0}
+
+    def flaky() -> None:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise PermissionError(32, "The process cannot access the file")
+
+    services._delete_retrying(flaky, workspace / "data" / BID)
+    assert calls["n"] == 3
+
+    def stuck() -> None:
+        raise PermissionError(32, "The process cannot access the file")
+
+    with pytest.raises(RuntimeError, match="in use"):
+        services._delete_retrying(stuck, workspace / "data" / BID)
+
+
+def test_delete_endpoint_answers_409_when_a_file_stays_locked(workspace, monkeypatch):
+    monkeypatch.setattr(services, "_LOCK_RETRY_SECONDS", 0.1)
+    monkeypatch.setattr(services, "_LOCK_RETRY_INTERVAL", 0.01)
+
+    def locked_rmtree(path, *args, **kwargs):
+        raise PermissionError(32, "The process cannot access the file")
+
+    monkeypatch.setattr(services.shutil, "rmtree", locked_rmtree)
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.delete(f"/bids/{BID}")
+    assert response.status_code == 409
+    assert "in use" in response.json()["error"]
+
+
 def test_delete_endpoint(workspace):
     with TestClient(app, raise_server_exceptions=False) as client:
         assert client.delete("/bids/bad%20id").status_code == 400
