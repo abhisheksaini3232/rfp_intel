@@ -98,7 +98,7 @@ results table. Outputs: `outputs/Bid1.json` (the deliverable record),
 | API | `uvicorn rfp_intel.api.server:app --reload` -> http://localhost:8000/docs |
 | Web app | `cd frontend && npm install && npm run dev` -> http://localhost:5173 (expects the API on :8000) |
 | Frontend checks | `cd frontend && npm run lint && npm test && npm run build` |
-| Tests | `pytest -q` (302 tests, no network or models needed) |
+| Tests | `pytest -q` (304 tests, no network or models needed) |
 | CI | `.github/workflows/ci.yml`: pytest, frontend checks, retrieval eval with a recall@5 floor, on every push |
 | Docker stack | `docker compose up --build` -> web app on :5173, API on :8001, Qdrant server on :6333 |
 | Answer cache | `python main.py cache stats` / `python main.py cache clear` (semantic cache, `cache.enabled`) |
@@ -386,6 +386,7 @@ Mapped to the assignment brief:
 | Retrieval evaluation report (question set, Recall@k / MRR per config) | [eval/results/retrieval.md](eval/results/retrieval.md) (questions in `eval/retrieval_questions.jsonl`) |
 | Sample Q&A log (>= 10 questions) | [eval/qa_log.md](eval/qa_log.md) (12 cited answers) |
 | Agent trace (one full extraction run) | [logs/example_trace.jsonl](logs/example_trace.jsonl) |
+| Demo video (5-10 min walkthrough) | recorded separately and attached to the submission |
 | Assumptions and known limitations | next section and [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) (numbered per phase) |
 | Requirements checklist | [docs/CHECKLIST.md](docs/CHECKLIST.md); testing guide [docs/TESTING.md](docs/TESTING.md); extraction eval [eval/results/extraction.md](eval/results/extraction.md); smoke test [eval/results/smoke_e2e.md](eval/results/smoke_e2e.md) |
 
