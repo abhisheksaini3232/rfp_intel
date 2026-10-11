@@ -48,8 +48,14 @@ class Embedder:
                                      normalize_embeddings=True, show_progress_bar=False)
         return [v.tolist() for v in vectors]
 
+    def embed_queries(self, texts: list[str]) -> list[list[float]]:
+        """Normalized embeddings for several queries in one model call (retrieval prefix added)."""
+        if not texts:
+            return []
+        vectors = self._model.encode([self.query_prefix + t for t in texts], batch_size=self.batch_size,
+                                     normalize_embeddings=True, show_progress_bar=False)
+        return [v.tolist() for v in vectors]
+
     def embed_query(self, text: str) -> list[float]:
         """Normalized embedding for a query, with the retrieval prefix."""
-        vector = self._model.encode([self.query_prefix + text], normalize_embeddings=True,
-                                    show_progress_bar=False)[0]
-        return vector.tolist()
+        return self.embed_queries([text])[0]

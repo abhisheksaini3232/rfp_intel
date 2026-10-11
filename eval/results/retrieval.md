@@ -1,6 +1,6 @@
 # Retrieval evaluation
 
-Generated 2026-10-10T08:50:06+00:00; top_k=10; 20 questions. A hit is relevant if it comes from the expected file and contains the key phrase (case/whitespace-insensitive).
+Generated 2026-10-11T04:44:23+00:00; top_k=10; 20 questions. A hit is relevant if it comes from the expected file and contains the key phrase (case/whitespace-insensitive).
 
 ## Summary
 

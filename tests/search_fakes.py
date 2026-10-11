@@ -27,13 +27,20 @@ class FakeEmbedder:
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [self._vector(t) for t in texts]
 
+    def embed_queries(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(t) for t in texts]
+
     def embed_query(self, text: str) -> list[float]:
         return self._vector(text)
 
 
 class FakeReranker:
-    """Score = number of distinct query tokens found in the passage."""
+    """Score = number of distinct query tokens found in the passage; counts its calls."""
+
+    def __init__(self) -> None:
+        self.calls = 0
 
     def score(self, query: str, passages: list[str]) -> list[float]:
+        self.calls += 1
         wanted = set(tokenize(query))
         return [float(len(wanted & set(tokenize(p)))) for p in passages]

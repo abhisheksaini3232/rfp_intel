@@ -477,3 +477,29 @@ Each entry: decision, reason, phase it was made in.
     full-width below `sm`. The evaluation bar chart no longer animates
     (it rendered empty in headless captures and prints). Checked with
     headless Chromium screenshots at 390, 768, 1024 and 1440px.
+90. **Fast Q&A retrieval (same answers, one fused search per request).** A
+    traced question took 137 s, 127 s of it in retrieval: the planner's 4
+    queries plus 2 change-log queries for *every* recorded addendum change
+    (16 searches), each search embedding up to 4 synonym variants and running
+    the cross-encoder, and the validator's "widened" retry repeating the
+    identical 16 searches because widening changes nothing for Q&A. Three
+    changes, none bid-specific: (1) `SearchEngine.search_many(queries, ...)`
+    runs vector + BM25 for every query and variant, fuses everything with one
+    RRF and re-ranks once against the first query; `search` is the one-query
+    case, so CLI, API and the retrieval eval are unchanged (eval scores are
+    identical). Query embeddings are batched in one model call and memoised
+    per query text (512 entries). The Retrieval agent issues one
+    `search_many` per EvidenceRequest and records one `search` tool call with
+    the `queries` list. (2) Change-log queries are added only for changes
+    whose *field name* shares a content word with the planner queries (a
+    stop-list removes question words, "addendum"/"bid"/"rfp" and generic
+    words such as "date", "type", "number"); values are not matched because
+    they are long and noisy. At most 3 changes (6 queries). The decision is
+    recorded as a `change_log` tool call. (3) The Q&A validator's retry goes
+    back to `answer`, not `retrieve`: the draft is rewritten on the same
+    evidence with the validator's reason appended to the prompt
+    (`answer_feedback` in the graph state). The extraction graph's widened
+    retry is unchanged. Also: the API lifespan now calls `engine.warm_up()`
+    so the embedding and re-ranking models load at startup (~30 s) instead
+    of inside the first user request. The same question now runs in ~10 s
+    warm (one retrieve step, ~6 queries, one re-rank).

@@ -28,15 +28,22 @@ from rfp_intel.schemas import (
     SearchHit,
     Task,
 )
+from rfp_intel.search.bm25_store import tokenize
 from rfp_intel.search.query import expand_query
 
 ADDENDUM_SUFFIX = "::addendum"
 QA_PREFIX = "qa::"
 ADDENDUM_TOP_K = 4
-MAX_CHANGE_QUERIES = 6
+MAX_CHANGE_QUERIES = 3          # changes (2 queries each) a change question may add
 MAX_QA_EVIDENCE = 20
 _ADDENDUM_WORD = re.compile(r"\baddend(?:um|a)\b|\bchange[sd]?\b|\brevis", re.IGNORECASE)
-MAX_QUERIES = 2                 # each search = embed + vector + BM25 + cross-encoder (~3-5 s on CPU)
+MAX_QUERIES = 2                 # queries per field; one request = one fused search + one re-rank
+# Words that say nothing about the topic of a change question.
+_STOP_TOKENS = frozenset("""a an and are as at be been by did do does for from has have how in is it its of on or
+    that the this to was were what when where which who will with after before all any final original current
+    latest new old change changes changed revised revision revisions update updated addendum addenda addendums
+    bid bids rfp proposal proposals solicitation document documents date dates time times type types number
+    numbers no info information name names detail details required requirement requirements""".split())
 MAX_WIDENED_QUERIES = 5
 MAX_ADDENDUM_QUERIES = 1
 MAX_HINT_WORDS = 12
@@ -101,9 +108,12 @@ def build_requests(task: Task, widened: bool, only_fields: list[str] | None) -> 
 def change_log_queries(bid_id: str, queries: list[str]) -> list[str]:
     """Extra queries for change questions, derived from the bid's saved change log.
 
-    When a question mentions an addendum, each recorded change contributes a
-    query for its old value (finds the original passage) and its new value
-    (finds the addendum passage), so both sides of a change are retrievable.
+    When a question mentions an addendum, each recorded change *about the
+    question's topic* contributes a query for its old value (finds the original
+    passage) and its new value (finds the addendum passage), so both sides of
+    the change are retrievable. A change is on topic when its field name shares
+    a content word with the queries; unrelated changes are skipped so a
+    question about one field does not fan out into a search per changed field.
     """
     if not any(_ADDENDUM_WORD.search(q) for q in queries):
         return []
@@ -114,34 +124,37 @@ def change_log_queries(bid_id: str, queries: list[str]) -> list[str]:
         record = BidRecord.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return []
+    wanted = _content_tokens(" ".join(queries))
+    relevant = [c for c in record.addendum_changes if _content_tokens(c.field) & wanted]
+    record_tool_call("change_log", bid_id=bid_id, changes=len(record.addendum_changes),
+                     relevant=[c.field for c in relevant[:MAX_CHANGE_QUERIES]])
     extra: list[str] = []
-    for change in record.addendum_changes[:MAX_CHANGE_QUERIES]:
+    for change in relevant[:MAX_CHANGE_QUERIES]:
         if change.old_value:
             extra.append(f"{change.field} {change.old_value[:80]}")
         extra.append(f"addendum {change.addendum_number} {change.field} {change.new_value[:80]}")
     return _dedupe(extra)
 
 
+def _content_tokens(text: str) -> set[str]:
+    """Lower-case word tokens of `text` without stop-words and generic bid vocabulary."""
+    return {t for t in tokenize(text) if t not in _STOP_TOKENS and len(t) > 1}
+
+
 def run_request(request: EvidenceRequest) -> EvidenceBundle:
-    """Search every query of a request and merge the hits (best rank first, no duplicates)."""
+    """Search all queries of a request in one fused, re-ranked pass (best first, no duplicates)."""
     engine = get_engine()
-    merged: dict[str, SearchHit] = {}
-    expanded: list[str] = []
-    for query in request.queries:
-        expanded.extend(expand_query(query))
-        try:
-            hits = engine.search(query, request.filters, top_k=request.top_k, config="hybrid_rerank")
-        except Exception as exc:  # noqa: BLE001 - a failing query yields no hits, not a crash
-            record_tool_call("search", query=query, error=f"{type(exc).__name__}: {exc}")
-            continue
-        record_tool_call("search", query=query, filters=request.filters.model_dump(exclude_none=True),
-                         top_k=request.top_k, hits=len(hits))
-        for hit in hits:
-            key = f"{hit.chunk.bid_id}/{hit.chunk.chunk_id}"
-            if key not in merged or hit.score > merged[key].score:
-                merged[key] = hit
-    hits = sorted(merged.values(), key=lambda h: h.score, reverse=True)[:request.top_k]
-    return EvidenceBundle(request=request, hits=hits, expanded_queries=_dedupe(expanded))
+    expanded = [variant for query in request.queries for variant in expand_query(query)]
+    try:
+        hits = engine.search_many(request.queries, request.filters, top_k=request.top_k, config="hybrid_rerank")
+    except Exception as exc:  # noqa: BLE001 - a failing search yields no hits, not a crash
+        record_tool_call("search", query=request.queries[0] if request.queries else "", queries=list(request.queries),
+                         error=f"{type(exc).__name__}: {exc}")
+        hits = []
+    else:
+        record_tool_call("search", query=request.queries[0] if request.queries else "", queries=list(request.queries),
+                         filters=request.filters.model_dump(exclude_none=True), top_k=request.top_k, hits=len(hits))
+    return EvidenceBundle(request=request, hits=list(hits[:request.top_k]), expanded_queries=_dedupe(expanded))
 
 
 @log_step(agent="Retrieval", node="retrieve")

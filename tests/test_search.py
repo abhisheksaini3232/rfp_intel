@@ -85,3 +85,28 @@ def test_search_on_empty_index_returns_nothing(tmp_path):
         assert eng.search("due date") == []
     finally:
         eng.close()
+
+
+def test_search_many_single_query_equals_search(engine):
+    single = engine.search("Laptop Quantity", SearchFilters(bid_id="MiniBid"), top_k=5)
+    many = engine.search_many(["Laptop Quantity"], SearchFilters(bid_id="MiniBid"), top_k=5)
+    assert [(h.chunk.chunk_id, h.score) for h in single] == [(h.chunk.chunk_id, h.score) for h in many]
+
+
+def test_search_many_fuses_queries_and_reranks_once(engine):
+    engine.reranker.calls = 0
+    hits = engine.search_many(["docking station", "processor memory", "warranty coverage"],
+                              SearchFilters(bid_id="OtherBid"), top_k=10)
+    assert hits and engine.reranker.calls == 1
+    assert all(h.chunk.bid_id == "OtherBid" for h in hits)
+    assert all("rerank" in h.ranks for h in hits)
+    assert engine.search_many([], SearchFilters(bid_id="OtherBid")) == []
+
+
+def test_query_embeddings_are_memoised(engine):
+    calls: list[list[str]] = []
+    original = engine.embedder.embed_queries
+    engine.embedder.embed_queries = lambda texts: calls.append(list(texts)) or original(texts)
+    engine.search("Laptop Quantity", SearchFilters(bid_id="MiniBid"))
+    engine.search("Laptop Quantity", SearchFilters(bid_id="MiniBid"))
+    assert len(calls) == 1

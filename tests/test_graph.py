@@ -104,3 +104,43 @@ def test_qa_graph_not_found_without_evidence(workspace, monkeypatch):
     state = run_question("Is a bid bond required?", ["BidT"], run_id="t-qa-empty")
     assert state["answer"].answer == "Not found in documents" and state["answer"].citations == []
     assert "AnswerDraft" not in scripted.calls
+
+
+def test_qa_retry_redrafts_on_same_evidence(workspace, monkeypatch):
+    engine = FakeEngine()
+    runtime.set_engine(engine)
+    scripted = ScriptedLLM(reject_answer_once=True)
+    install(monkeypatch, scripted)
+    state = run_question("What is the due date?", ["BidT"], run_id="t-qa-retry")
+    nodes = [n for n, _, _ in _steps("t-qa-retry")]
+    assert nodes == ["orchestrate", "retrieve", "answer", "validate_answer", "answer", "validate_answer"]
+    assert state["retries"] == {"answer": 1} and "July 9, 2024" in state["answer"].answer
+    searches_after_first_retrieve = len(engine.searches)
+    assert searches_after_first_retrieve == 1            # one query from the plan, searched once
+    drafts = [prompt for name, prompt in scripted.prompts if name == "AnswerDraft"]
+    assert len(drafts) == 2 and "rejected" not in drafts[0]
+    assert "rejected by the validator: the evidence does not mention a portal" in drafts[1]
+    assert state["answer"].confidence >= 0.5
+
+
+def test_change_log_queries_follow_the_question_topic(workspace, monkeypatch):
+    from rfp_intel.agents.nodes.retrieve import change_log_queries
+
+    runtime.set_engine(FakeEngine())
+    install(monkeypatch, ScriptedLLM())
+    run_extraction("BidT", run_id="t-changes")             # saves outputs/BidT.json with a Due Date override
+    assert change_log_queries("BidT", ["due date", "deadline extended by addendum"]) == [
+        "Due Date June 27, 2024 at 2:00 PM CST", "addendum 2 Due Date July 9, 2024 at 2:00 PM CST"]
+    assert change_log_queries("BidT", ["warranty terms in the addendum"]) == []     # unrelated change skipped
+    assert change_log_queries("BidT", ["due date"]) == []                           # no addendum mentioned
+    assert change_log_queries("NoSuchBid", ["due date addendum"]) == []
+
+
+def test_retrieve_searches_each_request_once(workspace, monkeypatch):
+    engine = FakeEngine()
+    runtime.set_engine(engine)
+    install(monkeypatch, ScriptedLLM())
+    run_question("What is the due date?", ["BidT"], run_id="t-qa-once")
+    step = [s for s in read_trace("t-qa-once") if s.node == "retrieve"][0]
+    searches = [c for c in step.tool_calls if c["kind"] == "search"]
+    assert len(searches) == 1 and searches[0]["queries"] == ["due date"] and searches[0]["hits"] == 3

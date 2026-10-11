@@ -6,6 +6,8 @@
 
 Search: parse filters from the query -> expand the query -> vector and BM25
 retrieval per query variant -> RRF -> cross-encoder re-rank -> top_k hits.
+`search_many` does the same for several queries with one fusion and one
+re-rank pass (the Retrieval agent uses it for every evidence request).
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from rfp_intel.search.reranker import Reranker
 from rfp_intel.search.vector_store import VectorStore, chunk_key
 
 logger = logging.getLogger(__name__)
+_QUERY_CACHE_SIZE = 512          # memoised query embeddings (query text -> vector)
 
 
 class EmbedderLike(Protocol):
@@ -37,7 +40,7 @@ class EmbedderLike(Protocol):
     @property
     def dim(self) -> int: ...
     def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
-    def embed_query(self, text: str) -> list[float]: ...
+    def embed_queries(self, texts: list[str]) -> list[list[float]]: ...
 
 
 class RerankerLike(Protocol):
@@ -57,6 +60,7 @@ class SearchEngine:
         self.bm25 = BM25Store(self.storage_dir / "bm25")
         self.manifest_path = self.storage_dir / "manifest.json"
         self._vectors: VectorStore | None = None
+        self._query_cache: dict[str, list[float]] = {}
 
     @property
     def vectors(self) -> VectorStore:
@@ -73,6 +77,11 @@ class SearchEngine:
                 manifest["_dim"] = dim
                 self._write_manifest(manifest)
         return self._vectors
+
+    def warm_up(self) -> None:
+        """Load the embedding and re-ranking models now (first use otherwise costs ~30 s)."""
+        self.embedder.embed_queries(["warm up"])
+        self.reranker.score("warm up", ["warm up"])
 
     def close(self) -> None:
         """Release the vector store's file lock."""
@@ -121,17 +130,36 @@ class SearchEngine:
     def search(self, query: str, filters: SearchFilters | None = None, top_k: int | None = None,
                config: str | None = None) -> list[SearchHit]:
         """Hybrid search. Explicit `filters` win over filters parsed from the query."""
+        return self.search_many([query], filters, top_k=top_k, config=config)
+
+    def search_many(self, queries: list[str], filters: SearchFilters | None = None,
+                    top_k: int | None = None, config: str | None = None) -> list[SearchHit]:
+        """Hybrid search for several queries about the same topic, fused and re-ranked once.
+
+        Every query (and its synonym variants) contributes a vector list and a
+        BM25 list to one RRF fusion; the cross-encoder then scores the top
+        `rerank_top_n` fused candidates against the first query. This costs one
+        batched query embedding and one re-rank pass instead of one per query.
+        """
         cfg = settings.retrieval_for(config)
-        parsed, cleaned = parse_filters(query, self.known_bids())
-        merged = merge_filters(parsed, filters)
-        variants = expand_query(cleaned)
+        queries = [q for q in queries if q and q.strip()]
+        if not queries:
+            return []
+        known = self.known_bids()
+        variants: list[tuple[str, SearchFilters]] = []
+        rerank_query = ""
+        for query in queries:
+            parsed, cleaned = parse_filters(query, known)
+            merged = merge_filters(parsed, filters)
+            rerank_query = rerank_query or cleaned
+            variants.extend((variant, merged) for variant in expand_query(cleaned))
 
         chunks: dict[str, Chunk] = {}
         ranks: dict[str, dict[str, int]] = {}
         lists: list[list[str]] = []
-        for variant in variants:
-            hits = self.vectors.search(self.embedder.embed_query(variant), merged,
-                                       cfg.candidates_per_retriever)
+        vectors = self._query_vectors([text for text, _ in variants])
+        for (variant, merged), vector in zip(variants, vectors, strict=True):
+            hits = self.vectors.search(vector, merged, cfg.candidates_per_retriever)
             lists.append(_collect(hits, "vector", chunks, ranks))
             if cfg.use_bm25:
                 hits = self.bm25.search(variant, merged, cfg.candidates_per_retriever)
@@ -139,9 +167,19 @@ class SearchEngine:
 
         fused = rrf(lists, cfg.rrf_k)
         if cfg.use_reranker and fused:
-            fused = self._rerank(cleaned, fused[:cfg.rerank_top_n], chunks, ranks)
+            fused = self._rerank(rerank_query, fused[:cfg.rerank_top_n], chunks, ranks)
         limit = top_k or cfg.final_top_k
         return [SearchHit(chunk=chunks[cid], score=score, ranks=ranks[cid]) for cid, score in fused[:limit]]
+
+    def _query_vectors(self, texts: list[str]) -> list[list[float]]:
+        """Query embeddings, memoised per query text; unseen texts are embedded in one batch."""
+        missing = list(dict.fromkeys(t for t in texts if t not in self._query_cache))
+        if missing:
+            for text, vector in zip(missing, self.embedder.embed_queries(missing), strict=True):
+                self._query_cache[text] = vector
+            while len(self._query_cache) > _QUERY_CACHE_SIZE:
+                self._query_cache.pop(next(iter(self._query_cache)))
+        return [self._query_cache[t] for t in texts]
 
     def _rerank(self, query: str, fused: list[tuple[str, float]], chunks: dict[str, Chunk],
                 ranks: dict[str, dict[str, int]]) -> list[tuple[str, float]]:

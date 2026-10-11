@@ -67,8 +67,8 @@ class Health(BaseModel):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Open the shared engine on startup (keeps one already injected) and close it on shutdown."""
-    get_engine()
+    """Open and warm the shared engine on startup (keeps one already injected); close it on shutdown."""
+    get_engine().warm_up()
     try:
         yield
     finally:

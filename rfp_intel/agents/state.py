@@ -42,6 +42,7 @@ class GraphState(TypedDict, total=False):
     to_retry: list[str]
     widened: bool                        # retry pass: wider retrieval for the fields in to_retry
     answer: Answer | None
+    answer_feedback: str | None          # Q&A retry: why the validator rejected the previous draft
     record: BidRecord | None
     errors: Annotated[list[str], operator.add]
     usage: Annotated[list[StepLog], operator.add]

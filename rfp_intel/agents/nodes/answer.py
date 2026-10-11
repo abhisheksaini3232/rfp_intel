@@ -73,9 +73,15 @@ def build_prompt(state: dict, evidence: dict[str, SearchHit]) -> str:
             f"[{eid}] ({hit.chunk.file_name}, p.{hit.chunk.page}) {hit.chunk.header}\n{hit.chunk.text}")
     evidence_block = "\n\n".join(f"## {bid}\n" + "\n\n".join(parts) for bid, parts in by_bid.items()) or "(no evidence found)"
     change_log = change_log_block(bids) if question_type == "changes" else ""
-    return (load_prompt("answer").replace("{question}", state.get("question") or "")
-            .replace("{question_type}", question_type).replace("{bid_ids}", ", ".join(bids) or "all")
-            .replace("{change_log_block}", change_log).replace("{evidence_block}", evidence_block))
+    prompt = (load_prompt("answer").replace("{question}", state.get("question") or "")
+              .replace("{question_type}", question_type).replace("{bid_ids}", ", ".join(bids) or "all")
+              .replace("{change_log_block}", change_log).replace("{evidence_block}", evidence_block))
+    feedback = state.get("answer_feedback")
+    if feedback:
+        prompt += (f"\n\nYour previous draft was rejected by the validator: {feedback}\n"
+                   "Redraft it. State only facts that appear in the evidence passages above; drop any "
+                   "claim the evidence does not support, and cite the ids that support what remains.")
+    return prompt
 
 
 def resolve_citations(draft: AnswerDraft, evidence: dict[str, SearchHit]) -> list[Citation]:
@@ -125,7 +131,7 @@ def answer(state: dict) -> dict:
 
 @log_step(agent="Validator", node="validate_answer")
 def validate_answer(state: dict) -> dict:
-    """Check quotes and support; request one widened retry when unsupported."""
+    """Check quotes and support; request one redraft (with feedback) when unsupported."""
     ans: Answer | None = state.get("answer")
     if ans is None or ans.answer == NOT_FOUND:
         return {"to_retry": [], "widened": False}
@@ -141,7 +147,9 @@ def validate_answer(state: dict) -> dict:
     retries = dict(state.get("retries", {}))
     if retries.get("answer", 0) < MAX_ANSWER_RETRIES:
         retries["answer"] = retries.get("answer", 0) + 1
-        return {"retries": retries, "to_retry": ["answer"], "widened": True, "errors": errors}
+        feedback = reason or ("a cited quote is not in its passage" if not quotes_ok else "unsupported claim")
+        return {"retries": retries, "to_retry": ["answer"], "widened": False, "answer_feedback": feedback,
+                "errors": errors}
     passages = sum(len(b.hits) for k, b in state.get("evidence", {}).items() if k.startswith(QA_PREFIX))
     return {"answer": not_found_answer(ans.question, ans.bids, passages), "to_retry": [], "widened": False,
             "errors": errors}

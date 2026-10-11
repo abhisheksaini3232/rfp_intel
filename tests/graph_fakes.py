@@ -48,6 +48,9 @@ class FakeEngine:
     def index_bid(self, folder, force=False):
         return IndexStats(bid_id=folder.name, documents=3, chunks_added=3, chunks_total=3)
 
+    def warm_up(self):
+        pass
+
     def known_bids(self):
         return [self.bid]
 
@@ -60,6 +63,13 @@ class FakeEngine:
         if filters and filters.bid_id and filters.bid_id != self.bid:
             return []
         return [SearchHit(chunk=c, score=float(len(hits) - i), ranks={"rerank": i + 1}) for i, c in enumerate(hits)]
+
+    def search_many(self, queries, filters=None, top_k=None, config=None):
+        merged: dict[str, SearchHit] = {}
+        for query in queries:
+            for hit in self.search(query, filters, top_k, config):
+                merged.setdefault(hit.chunk.chunk_id, hit)
+        return list(merged.values())[: top_k or 5]
 
     def close(self):
         pass
@@ -97,13 +107,17 @@ def requested_fields(prompt: str) -> list[str]:
 class ScriptedLLM:
     """Stands in for llm.structured / llm.text; `overrides` tweak values per field per call."""
 
-    def __init__(self, overrides: dict[str, list[tuple[str, str]]] | None = None, fail: Exception | None = None):
+    def __init__(self, overrides: dict[str, list[tuple[str, str]]] | None = None, fail: Exception | None = None,
+                 reject_answer_once: bool = False):
         self.overrides = overrides or {}
         self.fail = fail
+        self.reject_answer_once = reject_answer_once
         self.calls: list[str] = []
+        self.prompts: list[tuple[str, str]] = []
 
     def structured(self, prompt, model_cls, model, system=None):
         self.calls.append(model_cls.__name__)
+        self.prompts.append((model_cls.__name__, prompt))
         if self.fail is not None:
             raise self.fail
         usage = Usage(tokens_in=10, tokens_out=5)
@@ -117,6 +131,10 @@ class ScriptedLLM:
             return ReconcileDecisions(items=items), usage
         if model_cls is SupportChecks:
             names = re.findall(r"^- ([^:\n]+): value=", prompt, re.M)
+            if self.reject_answer_once and names == ["answer"]:
+                self.reject_answer_once = False
+                return SupportChecks(items=[SupportCheck(field="answer", supported=False,
+                                                         reason="the evidence does not mention a portal")]), usage
             return SupportChecks(items=[SupportCheck(field=n, supported=True) for n in names]), usage
         if model_cls is QAPlan:
             return QAPlan(question_type="single", bids=[], doc_types=[], queries=["due date"]), usage

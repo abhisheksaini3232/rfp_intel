@@ -9,7 +9,7 @@ Extraction:
 
 Q&A:
     START -> orchestrate -> retrieve -> answer -> validate_answer
-          --(unsupported, first time)--> retrieve (widened) -> answer -> validate_answer
+          --(unsupported, first time)--> answer (same evidence + validator feedback) -> validate_answer
           --(else)--> END
 """
 
@@ -122,8 +122,10 @@ def build_qa_graph():
     graph.add_edge("orchestrate", "retrieve")
     graph.add_edge("retrieve", "answer")
     graph.add_edge("answer", "validate_answer")
-    graph.add_conditional_edges("validate_answer", lambda s: "retrieve" if s.get("to_retry") else END,
-                                {"retrieve": "retrieve", END: END})
+    # The retry redrafts on the evidence already in state: Q&A retrieval is not
+    # widened in any useful way, so searching again would only repeat the work.
+    graph.add_conditional_edges("validate_answer", lambda s: "answer" if s.get("to_retry") else END,
+                                {"answer": "answer", END: END})
     return graph.compile()
 
 
@@ -131,7 +133,8 @@ def initial_state(mode: str, bid_ids: list[str], question: str | None = None, ru
     """A fresh GraphState."""
     return {"run_id": run_id or new_run_id(), "mode": mode, "bid_ids": list(bid_ids), "question": question,
             "evidence": {}, "drafts": {}, "addendum_changes": [], "validation": {}, "retries": {},
-            "to_retry": [], "widened": False, "answer": None, "record": None, "errors": [], "usage": []}
+            "to_retry": [], "widened": False, "answer": None, "answer_feedback": None, "record": None,
+            "errors": [], "usage": []}
 
 
 def run_extraction(bid_id: str, run_id: str | None = None) -> dict:
