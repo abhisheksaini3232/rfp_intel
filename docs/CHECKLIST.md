@@ -45,7 +45,7 @@ Walked row by row at the end of Phase 8 and again after the Phase 9 bonuses (202
 | G5 | Retrieval report | eval/results/retrieval.md | PASS |
 | G6 | Q&A log (>= 10) | eval/qa_log.md (12) | PASS |
 | G7 | Agent trace | logs/example_trace.jsonl | PASS |
-| G8 | Demo video | recording to be attached to the submission | OPEN (script ready) |
+| G8 | Demo video | [Google Drive link](https://drive.google.com/drive/folders/1hZYN21aU1L6XfzHsEbdoW9jQt4dhrKIF?usp=sharing) (also at the top of the README) | DONE |
 | X1 | Bonus: web UI | frontend/ (lint, test, build pass; verified against the live API) | PASS |
 | X2 | Bonus: OCR | ingestion.ocr.enabled path implemented and tested with a stubbed engine; needs Tesseract installed | PASS (partial: no Tesseract on the dev machine) |
 | X3 | Bonus: comparison agent | rfp_intel/agents/nodes/compare.py; `python main.py compare Bid1 Bid2`; POST/GET /compare; web Compare page; outputs/comparison.md; tests/test_bonus_agents.py | PASS |

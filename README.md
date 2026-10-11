@@ -1,5 +1,9 @@
 # RFP Intelligence Platform
 
+> ## 🎥 Demo Video
+> ### **[▶ Watch the demo video (Google Drive)](https://drive.google.com/drive/folders/1hZYN21aU1L6XfzHsEbdoW9jQt4dhrKIF?usp=sharing)**
+> A 5–10 minute walkthrough of the full platform — one-command run, search, extraction, Q&A, comparison and the web app.
+
 Reads a bid folder (PDF + HTML, including addendums), indexes it in a hybrid
 search engine, and runs a LangGraph multi-agent system that extracts 20 fields
 per bid with citations, confidence and an addendum change log, and answers
@@ -386,7 +390,7 @@ Mapped to the assignment brief:
 | Retrieval evaluation report (question set, Recall@k / MRR per config) | [eval/results/retrieval.md](eval/results/retrieval.md) (questions in `eval/retrieval_questions.jsonl`) |
 | Sample Q&A log (>= 10 questions) | [eval/qa_log.md](eval/qa_log.md) (12 cited answers) |
 | Agent trace (one full extraction run) | [logs/example_trace.jsonl](logs/example_trace.jsonl) |
-| Demo video (5-10 min walkthrough) | recorded separately and attached to the submission |
+| Demo video (5-10 min walkthrough) | **[Google Drive link](https://drive.google.com/drive/folders/1hZYN21aU1L6XfzHsEbdoW9jQt4dhrKIF?usp=sharing)** (also linked at the top of this README) |
 | Assumptions and known limitations | next section and [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) (numbered per phase) |
 | Requirements checklist | [docs/CHECKLIST.md](docs/CHECKLIST.md); testing guide [docs/TESTING.md](docs/TESTING.md); extraction eval [eval/results/extraction.md](eval/results/extraction.md); smoke test [eval/results/smoke_e2e.md](eval/results/smoke_e2e.md) |
 
