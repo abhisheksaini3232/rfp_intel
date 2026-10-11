@@ -64,7 +64,7 @@ export function RunTracePage() {
       {run.data && (
         <Card>
           <CardContent className="p-4 sm:p-5">
-            <RunSteps steps={run.data.steps} status={run.data.status} />
+            <RunSteps steps={run.data.steps} status={run.data.status} kind={run.data.kind} />
           </CardContent>
         </Card>
       )}

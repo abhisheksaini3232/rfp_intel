@@ -36,7 +36,7 @@ Walked row by row at the end of Phase 8 and again after the Phase 9 bonuses (202
 | T2 | Keys from env | .env only; config never prints keys | PASS |
 | T3 | One command | `python main.py --bid ./data/Bid1` | PASS |
 | T4 | Modular | rfp_intel/ingestion, search, agents, api | PASS |
-| T5 | Unit tests | `pytest -q`: 304 tests; frontend: 27 Vitest tests; `python -m eval.smoke_e2e`: 23 end-to-end checks (docs/TESTING.md) | PASS |
+| T5 | Unit tests | `pytest -q`: 304 tests; frontend: 33 Vitest tests; `python -m eval.smoke_e2e`: 23 end-to-end checks (docs/TESTING.md) | PASS |
 | T6 | Unseen bid works | data/MiniBid run with no code changes; no bid-specific strings in source | PASS (no real Bid3 available; see ASSUMPTIONS 78) |
 | G1 | Repo | https://github.com/abhisheksaini3232/rfp_intel | PASS |
 | G2 | README | README.md | PASS |

@@ -164,7 +164,7 @@ export function BidDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <RunSteps steps={run.status.steps} status={run.status.status} compact />
+            <RunSteps steps={run.status.steps} status={run.status.status} kind={run.status.kind} compact />
           </CardContent>
         </Card>
       )}

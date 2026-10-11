@@ -1,36 +1,40 @@
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import type { RunState, StepLog } from "@/api/types";
+import type { RunKind, RunState, StepLog } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
+import { estimateRun, formatSeconds, formatStepSeconds } from "@/lib/runEstimate";
 import { cn } from "@/lib/utils";
 
 interface RunStepsProps {
   steps: StepLog[];
   status: RunState;
+  kind?: RunKind;
   compact?: boolean;
 }
 
-function totals(steps: StepLog[]) {
-  return steps.reduce(
-    (acc, s) => ({
-      latency: acc.latency + s.latency_ms,
-      errors: acc.errors + (s.error ? 1 : 0),
-    }),
-    { latency: 0, errors: 0 },
-  );
-}
-
-/** Vertical timeline of StepLog entries with per-step timing (tokens and cost stay in the API trace). */
-export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
-  const sum = totals(steps);
+/** Vertical timeline of StepLog entries with per-step timing and, while running, the expected duration. */
+export function RunSteps({ steps, status, kind = "extract", compact = false }: RunStepsProps) {
+  const errors = steps.filter((s) => s.error).length;
+  const estimate = estimateRun(steps, kind);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <StatusPill status={status} />
         <span className="min-w-0 text-muted-foreground">
-          {steps.length} step{steps.length === 1 ? "" : "s"} · {(sum.latency / 1000).toFixed(1)}s
-          {sum.errors > 0 && <span className="text-red-600 dark:text-red-400"> · {sum.errors} error(s)</span>}
+          {steps.length} step{steps.length === 1 ? "" : "s"} · {formatSeconds(estimate.elapsedS)}
+          {status === "running" && (
+            <span>
+              {" "}· about {formatSeconds(estimate.remainingS)} remaining (expected total ~{formatSeconds(estimate.totalS)})
+            </span>
+          )}
+          {errors > 0 && <span className="text-red-600 dark:text-red-400"> · {errors} error(s)</span>}
         </span>
       </div>
+      {status === "running" && (
+        <p className="text-xs text-muted-foreground">
+          The estimate assumes the usual run shape (one retrieval and one extraction per field group, one validator retry
+          round) and updates as steps complete; retrieval over large documents is the slowest part.
+        </p>
+      )}
       {steps.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {status === "running" ? "Waiting for the first step..." : "No steps were recorded."}
@@ -52,7 +56,7 @@ export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
                   {step.node}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {step.latency_ms} ms
+                  {formatStepSeconds(step.latency_ms)}
                 </span>
               </div>
               {!compact && (
