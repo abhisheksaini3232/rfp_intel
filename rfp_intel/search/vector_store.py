@@ -1,8 +1,10 @@
-"""Qdrant vector store (embedded local mode) with full Chunk payloads and metadata filters.
+"""Qdrant vector store with full Chunk payloads and metadata filters.
 
-Local mode keeps everything in `storage/qdrant` and allows one client per
-folder at a time. Payload indexes are requested for bid_id, doc_type and
-addendum_number; local mode ignores them, a Qdrant server uses them.
+`vector_store.kind` picks the client: `qdrant_local` keeps everything in
+`storage/qdrant` and allows one client per folder at a time (one process);
+`qdrant_server` talks to the server at `QDRANT_URL` (.env) so several API
+processes can share one index. Payload indexes are requested for bid_id,
+doc_type and addendum_number; local mode ignores them, a server uses them.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient, models
 
+from rfp_intel.config import settings
 from rfp_intel.schemas import Chunk, SearchFilters
 
 logger = logging.getLogger(__name__)
@@ -26,12 +29,25 @@ _INDEXED_FIELDS = {
 _UPSERT_BATCH = 256
 
 
+def make_client(kind: str, path: Path, url: str = "", api_key: str = "") -> QdrantClient:
+    """A Qdrant client for `kind`: embedded at `path`, or the server at `url`."""
+    if kind == "qdrant_local":
+        Path(path).mkdir(parents=True, exist_ok=True)
+        return QdrantClient(path=str(path))
+    if kind == "qdrant_server":
+        if not url:
+            raise ValueError("vector_store.kind is qdrant_server but QDRANT_URL is not set in .env")
+        return QdrantClient(url=url, api_key=api_key or None)
+    raise ValueError(f"unknown vector_store.kind {kind!r} (use qdrant_local or qdrant_server)")
+
+
 class VectorStore:
     """Chunks and their vectors in a Qdrant collection."""
 
-    def __init__(self, path: Path, collection: str, dim: int) -> None:
-        Path(path).mkdir(parents=True, exist_ok=True)
-        self.client = QdrantClient(path=str(path))
+    def __init__(self, path: Path, collection: str, dim: int, client: QdrantClient | None = None) -> None:
+        env = settings.env
+        self.client = client or make_client(settings.vector_store.kind, path, env.qdrant_url,
+                                            env.qdrant_api_key.get_secret_value())
         self.collection = collection
         self._ensure_collection(dim)
 

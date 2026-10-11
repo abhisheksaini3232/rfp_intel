@@ -77,7 +77,16 @@ class Health(BaseModel):
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Open and warm the shared engine on startup (keeps one already injected); close it on shutdown."""
-    get_engine().warm_up()
+    try:
+        get_engine().warm_up()
+    except RuntimeError as exc:
+        if "already accessed by another instance" in str(exc):
+            raise RuntimeError(
+                "the embedded Qdrant store is held by another process; run one API process with "
+                "vector_store.kind: qdrant_local, or set vector_store.kind: qdrant_server (QDRANT_URL) "
+                "to run several"
+            ) from exc
+        raise
     try:
         yield
     finally:

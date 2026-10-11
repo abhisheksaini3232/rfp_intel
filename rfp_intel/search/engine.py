@@ -24,7 +24,7 @@ from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
 from rfp_intel.schemas import Chunk, IndexStats, SearchFilters, SearchHit
 from rfp_intel.search.bm25_store import BM25Store
 from rfp_intel.search.chunker import chunk_document, embed_text
-from rfp_intel.search.embedder import Embedder
+from rfp_intel.search.embedder import make_embedder
 from rfp_intel.search.fusion import rrf
 from rfp_intel.search.query import expand_query, parse_filters
 from rfp_intel.search.reranker import Reranker
@@ -55,7 +55,7 @@ class SearchEngine:
     def __init__(self, storage_dir: Path | None = None, embedder: EmbedderLike | None = None,
                  reranker: RerankerLike | None = None) -> None:
         self.storage_dir = Path(storage_dir or settings.path("storage_dir"))
-        self.embedder: EmbedderLike = embedder or Embedder()
+        self.embedder: EmbedderLike = embedder or make_embedder()
         self.reranker: RerankerLike = reranker or Reranker()
         self.bm25 = BM25Store(self.storage_dir / "bm25")
         self.manifest_path = self.storage_dir / "manifest.json"
@@ -166,8 +166,9 @@ class SearchEngine:
                 lists.append(_collect(hits, "bm25", chunks, ranks))
 
         fused = rrf(lists, cfg.rrf_k)
-        if cfg.use_reranker and fused:
-            fused = self._rerank(rerank_query, fused[:cfg.rerank_top_n], chunks, ranks)
+        if cfg.use_reranker and settings.reranker.enabled and fused:
+            top_n = min(cfg.rerank_top_n, settings.reranker.max_passages or cfg.rerank_top_n)
+            fused = self._rerank(rerank_query, fused[:top_n], chunks, ranks)
         limit = top_k or cfg.final_top_k
         return [SearchHit(chunk=chunks[cid], score=score, ranks=ranks[cid]) for cid, score in fused[:limit]]
 

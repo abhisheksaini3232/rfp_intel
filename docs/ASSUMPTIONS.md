@@ -522,3 +522,24 @@ Each entry: decision, reason, phase it was made in.
     elapsed seconds and a link to the trace; the trace page shows the answer
     bubble above the steps for question runs. `GET /health` reports the
     question queue (`running`, `queued`, `workers`).
+92. **Deployment switches (Phase C).** `vector_store.kind` now accepts
+    `qdrant_server` next to `qdrant_local`; the server location and key come
+    from `.env` (`QDRANT_URL`, `QDRANT_API_KEY`), and
+    `VectorStore.make_client` builds the right client, so several API
+    processes can share one index. `embedding.provider: openai` adds
+    `RemoteEmbedder` (OpenAI embeddings API, batched, normalized, using
+    `LLM_API_KEY`) behind the same `EmbedderLike` protocol; it is an
+    embedding call, not a completion, so it does not go through `llm.py`.
+    The index manifest already keys on the embedding model name, so a
+    provider switch re-indexes. `reranker.enabled` and
+    `reranker.max_passages` let a deployment turn the cross-encoder off or
+    cap it (with `enabled: false` the `hybrid_rerank` config behaves like
+    `hybrid`). `embedding.torch_threads` (0 = default) sets torch's thread
+    count once per process for the local models. A deployment changes these
+    without editing the base file through `RFP_SETTINGS_OVERLAY=<yaml>`,
+    deep-merged over `config/settings.yaml` (the shipped `config/docker.yaml`
+    selects the server and 4 question workers); settings still live only in
+    `config/*.yaml`. `Dockerfile`, `frontend/Dockerfile` (nginx serving the
+    built app) and `docker-compose.yml` (Qdrant + API + web) are the
+    reference stack. A second process opening the embedded store fails fast
+    with a message that names the `qdrant_server` option.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 
 from rfp_intel.config import settings
-from rfp_intel.search.embedder import load_cached
+from rfp_intel.search.embedder import configure_torch, load_cached
 
 
 class Reranker:
@@ -25,5 +25,6 @@ class Reranker:
         """Relevance score per passage (higher is better)."""
         if not passages:
             return []
+        configure_torch()
         scores = self._model.predict([(query, p) for p in passages], show_progress_bar=False)
         return [float(s) for s in scores]

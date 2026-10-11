@@ -48,6 +48,8 @@ LLM_API_KEY=...
 EXTRACT_MODEL=gpt-6-luna           # fast, low-cost: the three extractor agents
 REASON_MODEL=gpt-5.4-mini          # stronger: reconciliation, validation, Q&A, summary
 # LLM_DEV_CACHE=1                  # optional: cache identical LLM calls on disk while developing
+# QDRANT_URL=http://localhost:6333 # only with vector_store.kind: qdrant_server (see "Running in production")
+# RFP_SETTINGS_OVERLAY=config/docker.yaml   # optional yaml merged over config/settings.yaml
 ```
 
 All other settings live in `config/*.yaml` (`settings.yaml`: paths, chunking,
@@ -77,6 +79,7 @@ results table. Outputs: `outputs/Bid1.json` (the deliverable record),
 | API | `uvicorn rfp_intel.api.server:app --reload` -> http://localhost:8000/docs |
 | Web app | `cd frontend && npm install && npm run dev` -> http://localhost:5173 (expects the API on :8000) |
 | Frontend checks | `cd frontend && npm run lint && npm test && npm run build` |
+| Docker stack | `docker compose up --build` -> web app on :5173, API on :8001, Qdrant server on :6333 |
 
 Search queries can carry their own filters: a bid id ("Bid2"), "addendum 2",
 or a scoped document type ("only search Bid2 specs processor", "in the RFP").
@@ -174,6 +177,37 @@ duplicates.
 
 `retrieval_configs` names three setups (`vector`, `hybrid`, `hybrid_rerank`)
 for the evaluation and the `--config` flag.
+
+The Retrieval agent asks for all of a request's queries at once
+(`SearchEngine.search_many`): every query and synonym variant contributes a
+dense and a BM25 list to one fusion, and the cross-encoder runs once over the
+fused top 20. Query embeddings are batched and memoised. The first fused
+search of a question costs about 4 s on CPU; the API warms both models at
+startup so no request pays the ~30 s model load.
+
+### Running in production
+
+The defaults are a single-process developer setup: embedded Qdrant under
+`storage/`, local models on CPU, `POST /ask` answered inline. The same code
+runs a multi-process deployment with three switches, all in
+`config/settings.yaml` (or an overlay file named by `RFP_SETTINGS_OVERLAY`,
+such as the shipped `config/docker.yaml`):
+
+| Switch | Development | Production |
+|---|---|---|
+| `vector_store.kind` | `qdrant_local` (one process may hold the index) | `qdrant_server` + `QDRANT_URL` in `.env`: any number of API processes share one index and payload indexes take effect |
+| `embedding.provider` | `local` (`BAAI/bge-small-en-v1.5`) | `openai` (`embedding.model: text-embedding-3-small`, uses `LLM_API_KEY`): no torch on the API host; switching re-indexes because the manifest keys on the model |
+| `reranker.enabled` / `max_passages` | `true` / 20 | keep on for accuracy; lower `max_passages` or disable to trade recall@1 for latency |
+| `embedding.torch_threads` | 0 (torch default) | the CPU share per process when several workers share one host |
+| `api.ask_workers` / `ask_queue_max` | 2 / 8 | sized to the host; the API answers 429 when the queue is full |
+
+Questions from the web app run in the background (`POST /ask/runs`, polled
+through `GET /runs/{id}`) with a soft timeout (`agents.qa_timeout_s`), so a
+slow question never blocks the server; extraction keeps its one-at-a-time
+lock because it rewrites the index. `docker compose up --build` starts a
+Qdrant server, the API (with `config/docker.yaml` applied) and the built web
+app; index a bid against the server with
+`RFP_SETTINGS_OVERLAY=config/docker.yaml QDRANT_URL=http://localhost:6333 python main.py index --bid data/Bid1`.
 
 ### Agent framework and roles
 
@@ -284,8 +318,11 @@ recorded the fixture's addendum due-date override (`outputs/MiniBid.json`).
   the quote checks bound the effect). See `docs/ASSUMPTIONS.md` items 5-7.
 - Scanned PDFs are detected (empty pages are flagged) but OCR is off by
   default (`ingestion.ocr.enabled`); enabling it needs Tesseract installed.
-- Qdrant runs in embedded mode: one process may hold the index at a time
-  (CLI and API should not index concurrently).
+- With the default `vector_store.kind: qdrant_local` one process may hold
+  the index at a time (CLI and API should not run concurrently); use
+  `qdrant_server` for several processes (see "Running in production").
+- A background question past `agents.qa_timeout_s` is reported as failed but
+  its thread runs to completion; Python threads cannot be interrupted.
 - Tables are extracted by pdfplumber only when they are ruled; layout grids
   are left as text.
 - Chunk pages are the page a unit starts on; a quote may continue on the

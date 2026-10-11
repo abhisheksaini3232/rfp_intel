@@ -59,16 +59,17 @@ class ChunkingSettings(BaseModel):
 class EmbeddingSettings(BaseModel):
     """Embedding model settings."""
 
-    provider: str
+    provider: str                        # local (sentence-transformers) | openai (embeddings API)
     model: str
     batch_size: int
     query_prefix: str = ""
+    torch_threads: int = 0               # local models only; 0 keeps torch's default
 
 
 class VectorStoreSettings(BaseModel):
-    """Vector store settings."""
+    """Vector store settings: embedded Qdrant under storage/, or a Qdrant server (QDRANT_URL)."""
 
-    kind: str
+    kind: str                            # qdrant_local | qdrant_server
     collection: str
 
 
@@ -91,9 +92,11 @@ class RetrievalOverride(BaseModel):
 
 
 class RerankerSettings(BaseModel):
-    """Cross-encoder model."""
+    """Cross-encoder model and deployment switches."""
 
     model: str
+    enabled: bool = True                 # false: hybrid_rerank behaves like hybrid (no cross-encoder)
+    max_passages: int | None = None      # cap on passages re-ranked per search (None = rerank_top_n)
 
 
 class LLMSettings(BaseModel):
@@ -152,6 +155,9 @@ class EnvSettings(BaseModel):
     extract_model: str = ""
     reason_model: str = ""
     llm_dev_cache: bool = False
+    qdrant_url: str = ""                 # vector_store.kind == qdrant_server
+    qdrant_api_key: SecretStr = SecretStr("")
+    settings_overlay: str = ""           # RFP_SETTINGS_OVERLAY: a yaml merged over settings.yaml
 
 
 class Settings(BaseModel):
@@ -228,12 +234,39 @@ def _env_settings() -> EnvSettings:
         extract_model=os.getenv("EXTRACT_MODEL", "").strip(),
         reason_model=os.getenv("REASON_MODEL", "").strip(),
         llm_dev_cache=os.getenv("LLM_DEV_CACHE", "0").strip() == "1",
+        qdrant_url=os.getenv("QDRANT_URL", "").strip(),
+        qdrant_api_key=SecretStr(os.getenv("QDRANT_API_KEY", "").strip()),
+        settings_overlay=os.getenv("RFP_SETTINGS_OVERLAY", "").strip(),
     )
 
 
+def deep_merge(base: dict, overlay: dict) -> dict:
+    """`overlay` merged into a copy of `base`; nested dicts merge, other values are replaced."""
+    merged = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def load_settings() -> Settings:
-    """Build Settings from config/settings.yaml and the environment."""
-    return Settings(**_read_yaml("settings.yaml"), env=_env_settings())
+    """Build Settings from config/settings.yaml, an optional overlay file and the environment.
+
+    `RFP_SETTINGS_OVERLAY=config/docker.yaml` merges that file over settings.yaml
+    so a deployment can switch e.g. `vector_store.kind` without editing the
+    base file. Relative paths are resolved from the project root.
+    """
+    env = _env_settings()
+    data = _read_yaml("settings.yaml")
+    if env.settings_overlay:
+        overlay_path = Path(env.settings_overlay)
+        if not overlay_path.is_absolute():
+            overlay_path = ROOT / overlay_path
+        with open(overlay_path, encoding="utf-8") as fh:
+            data = deep_merge(data, yaml.safe_load(fh) or {})
+    return Settings(**data, env=env)
 
 
 @lru_cache(maxsize=1)
