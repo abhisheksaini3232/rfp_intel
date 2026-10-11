@@ -1,0 +1,263 @@
+{
+  "bid_id": "Bid1",
+  "recommendation": "review",
+  "criteria": [
+    {
+      "criterion": "manufacturer_authorization",
+      "label": "Authorized for the required manufacturer(s)",
+      "status": "met",
+      "critical": true,
+      "reason": "The bid names branded products/manufacturers including Dell, HP, Lenovo, Apple, Acer, ASUS, Samsung, and Google. All of these are in the company's authorized_manufacturers list.",
+      "fields": [
+        "MFG for Registration",
+        "Model_no",
+        "Product",
+        "Product Specification"
+      ],
+      "sources": [
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 35,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:35:160",
+          "quote": "Line | Item, Rev | Target Quantity | Unit | Unit Price | Amount | Bid Minimum Release Amount\n15.01 Tier 1 Small Student Chromebook Laptop (Touch) | 50,000 | Each\n15.02 Tier 2 Large Student Chromebook Laptop (Non- Touch) | 50,000 | Each\n16 STUDENT LAPTOPS - FOR EVALUATION PURPOSES (Pricing required t"
+        },
+        {
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 2,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:2:20",
+          "quote": "Answer: The quantities will be spread over life of the contract."
+        },
+        {
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 2,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:2:20",
+          "quote": "The quantities will be spread over life of the contract."
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 5,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:5:15",
+          "quote": "Tier 1 Staff Windows Basic Desktop Minimum Requirements\n• Enterprise Management Ready with Autopilot Enrollment\n• Processor: Intel i5 Processor, 14th Gen or equivalent\n• Display: Minimum 23.8\" diagonal screen Touch Screen\n• Memory: Minimum 16GB RAM\n• Wireless: 802.11AX WiFi-6E and Bluetooth 5.1\n• Po"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 5,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:5:16",
+          "quote": "Tier 2 Staff Professional Desktop Minimum Requirements\n• Enterprise Management Ready\n• Intel i7 Processor, 14th Gen or equivalent.\n• Display: Minimum 23.8\" diagonal screen Touch Screen\n• Memory: Minimum 32GB DDR5 RAM\n• Wireless: 802.11AX WiFi-6E and Bluetooth 5.1\n• Ports: Minimum 3 USB 3.0; 1 USB-C,"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 4,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:4:12",
+          "quote": "Tier 2 Large Student Chromebook Laptop Minimum Requirements\n• Enterprise Management Ready\n• Intel Celeron Processor N100 or equivalent\n• Display: Minimum 14\" diagonal Non-Touch\n• Integrated Camera: 720p minimum\n• Screen Resolution 1920-1080\n• Memory: Minimum 8GB DDR5 Memory\n• Wireless: 802.11AX WiFi"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 6,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:6:17",
+          "quote": "Tier 1 Staff Basic Laptop Minimum Requirements\n• Enterprise Management Ready\n• Intel i5 CPU, 14th Gen or equivalent.\n• Display: Minimum 13\" diagonal screen\n• Integrated Camera: 1080p\n• Memory: Minimum 16GB DDR5 RAM\n• Wireless: 802.11AX WiFi-6E and Bluetooth 5.1\n• Power Supply: USB Type C, 65W\n• Batt"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 6,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:6:18",
+          "quote": "Tier 2 Staff Laptop Minimum Requirements\n• Enterprise Management Ready\n• Intel i7 CPU, 14th Gen or equivalent.\n• Display: Minimum 13\" diagonal screen\n• Integrated Camera: 1080p\n• Resolution: 1920 X 1080 minimum\n• Memory: Minimum 32GB DDR5 RAM\n• Wireless: 802.11AX WiFi-6E and Bluetooth 5.1\n• Power Su"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 4,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:4:13",
+          "quote": "Tier 3 Student Windows Laptop Minimum Requirements\n• Enterprise Management Ready w/ Autopilot Enrollment\n• Intel i5 13th Gen or equivalent\n• Display: Minimum 13\" diagonal\n• Integrated Camera: 720p minimum\n• Screen Resolution 1920-1080 Non-Touch\n• Memory: Minimum 16GB RAM DDR5 Memory\n• Wireless: 802."
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 5,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:5:14",
+          "quote": "Student Tablet Minimum Requirements\n• Enterprise Management Ready\n• Processor A13\n• Display: 10.2\" Retina\n• Integrated Camera: 8MP Wide camera\n• Screen Resolutions 2160 x 1620 Multi-touch\n• Wireless: 802.11AC and Bluetooth 4.2\n• Power Supply included\n• Battery Life: Minimum 10 Hours\n• Ports: 1 headp"
+        },
+        {
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 1,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:1:0",
+          "quote": "USB 3.1 is a minimum requirement."
+        }
+      ]
+    },
+    {
+      "criterion": "delivery",
+      "label": "Delivery window achievable",
+      "status": "met",
+      "critical": true,
+      "reason": "Delivery starts \"in September of 2024\" and the bid requires deployment services including white glove services, asset tagging/reporting, etching, software installation, device deployment and setup. The company capability includes installation_services and imaging_and_asset_tagging.",
+      "fields": [
+        "Delivery Date",
+        "Installation"
+      ],
+      "sources": [
+        {
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 1,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:1:3",
+          "quote": "Dallas ISD is anticipating requesting quotes for different projects from awarded\nvendors starting in September of 2024."
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 3,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:3:9",
+          "quote": "All deliveries and deployments must incorporate white glove services, which include asset decaling, asset\nreporting, etching, and delivery to varied locations."
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 7,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:7:21",
+          "quote": "These\nservices include (a) software installation, (b) asset tagging and etching, (c) device deployment and setup,\nand (d) asset control reporting."
+        },
+        {
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 4,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:4:32",
+          "quote": "For Windows devices, autopilot is required. For Chromebooks, enrollment in\nGoogle Management is required."
+        },
+        {
+          "file": "Addendum 1 RFP JA-207652 Student and Staff Computing Devices.pdf",
+          "page": 1,
+          "chunk_id": "60bbbffe6520d33ccff6b9e621c6435681b5a94f:1:5",
+          "quote": "Answer: No, Dallas ISD will only require etching on Laptops."
+        }
+      ]
+    },
+    {
+      "criterion": "bonding",
+      "label": "Bid bond within bonding capacity",
+      "status": "met",
+      "critical": true,
+      "reason": "None of the fields Bid Bond Requirement is stated in the documents",
+      "fields": [
+        "Bid Bond Requirement"
+      ],
+      "sources": []
+    },
+    {
+      "criterion": "region",
+      "label": "Customer in a served region",
+      "status": "met",
+      "critical": false,
+      "reason": "The company profile says it serves public-sector customers, and the bid/company contact values point to Dallas Independent School District with Dallas-area contact details. Texas is a served region.",
+      "fields": [
+        "company_name",
+        "contact_info",
+        "Bid Submission Type"
+      ],
+      "sources": [
+        {
+          "file": "Student and Staff Computing Devices __SOURCING #168884__ - Bid Information - {3} _ BidNet Direct.html",
+          "page": 1,
+          "chunk_id": "e28bc259e5f75c155ff1067a7aa1750f6191073d:1:0",
+          "quote": "Issuing Organization: Dallas Independent School District"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 1,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:1:0",
+          "quote": "Buyer ALZATE, JASMINE Email JALZATE@dallasisd.org"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 61,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:61:156",
+          "quote": "Please direct all procurement questions to Sherri Williams at shewilli@dallasisd.org."
+        },
+        {
+          "file": "Student and Staff Computing Devices __SOURCING #168884__ - Bid Information - {3} _ BidNet Direct.html",
+          "page": 1,
+          "chunk_id": "e28bc259e5f75c155ff1067a7aa1750f6191073d:1:0",
+          "quote": "Contact Information: Procurement Services 972-925-3700 ProcurementCS@dallasisd.org"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 9,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:9:23",
+          "quote": "Dallas ISD prefers responses to be submitted online via our electronic system. Please register with the\niSupplier portal https://www.dallasisd.org/domain/143"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 9,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:9:24",
+          "quote": "Manual submissions must be delivered to the Procurement Services Department, in a\nsealed envelope by the date and time stated. No fax or email submissions will be accepted. Only one\nformat is needed. The manual submission shall consist of one (1) original hard copy."
+        }
+      ]
+    },
+    {
+      "criterion": "contract_term",
+      "label": "Contract term within policy",
+      "status": "met",
+      "critical": false,
+      "reason": "The term is \"Three (3) year agreement\" with renewal options. The initial term matches the max_initial_term_years of 3.",
+      "fields": [
+        "Term of Bid"
+      ],
+      "sources": [
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 2,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:2:3",
+          "quote": "The term of this proposal shall be for a three (3) year agreement with two (2) successive one (1) year\nextensions based on the long-range needs of the District and mutual consent of both parties not to exceed\nfive (5) years total."
+        }
+      ]
+    },
+    {
+      "criterion": "submission",
+      "label": "Submission method supported",
+      "status": "met",
+      "critical": false,
+      "reason": "The bid allows \"Electronic submission via the iSupplier portal\" and the company supports electronic_portal submissions.",
+      "fields": [
+        "Bid Submission Type"
+      ],
+      "sources": [
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 9,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:9:23",
+          "quote": "Dallas ISD prefers responses to be submitted online via our electronic system. Please register with the\niSupplier portal https://www.dallasisd.org/domain/143"
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 9,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:9:24",
+          "quote": "Manual submissions must be delivered to the Procurement Services Department, in a\nsealed envelope by the date and time stated. No fax or email submissions will be accepted. Only one\nformat is needed. The manual submission shall consist of one (1) original hard copy."
+        }
+      ]
+    },
+    {
+      "criterion": "cooperative",
+      "label": "Contract vehicle accessible",
+      "status": "unknown",
+      "critical": false,
+      "reason": "The bid references \"Educational Purchasing Cooperative of North Texas (EPCNT); Central Texas Purchasing Alliance (CTPA),\" but these are not clearly identifiable as one of the company's listed cooperative memberships.",
+      "fields": [
+        "Contract or Cooperative to use"
+      ],
+      "sources": [
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 19,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:19:48",
+          "quote": "Dallas ISD is a member of the Educational Purchasing Cooperative of North Texas (EPCNT)."
+        },
+        {
+          "file": "JA-207652 Student and Staff Computing Devices FINAL.pdf",
+          "page": 20,
+          "chunk_id": "111ebbb2526be30d823961bbcc61425c33990237:20:51",
+          "quote": "Dallas ISD is a member of the Central Texas Purchasing Alliance (CTPA), an alliance of school districts in\nthe central Texas area that share information, services, and contractual opportunities."
+        }
+      ]
+    }
+  ],
+  "summary": "Needs review: 6 of 7 criteria met. Unknown (not stated in the documents or undecidable): Contract vehicle accessible.",
+  "met": 6,
+  "not_met": 0,
+  "unknown": 1,
+  "generated_at": "2026-10-11T09:46:45.530+00:00",
+  "run_id": "20261011T094640Z-a231fe"
+}

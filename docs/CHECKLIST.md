@@ -1,6 +1,6 @@
 # Requirements checklist (BUILD_PLAN Section 1)
 
-Walked row by row at the end of Phase 8. Proof = where to look.
+Walked row by row at the end of Phase 8 and again after the Phase 9 bonuses (2026-10-11). Proof = where to look.
 
 | id | requirement | proof | result |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Walked row by row at the end of Phase 8. Proof = where to look.
 | B9 | Citations: file, page, chunk text | `/search` hits carry the full Chunk; FieldValue.sources | PASS |
 | B10 | REST API + CLI (`POST /index`, `GET /search`, `POST /ask`) | tests/test_api.py; live curl of all 13 endpoints | PASS |
 | B11 | >= 15 eval questions, Recall@k + MRR, >= 2 configs, table in README | 20 questions, 3 configs, eval/results/retrieval.md, README | PASS |
-| C1-C7 | Orchestrator, Ingestion, Retrieval, Extraction, Addendum Reconciliation, Validator, Q&A/Report agents | rfp_intel/agents/nodes/*; logs/example_trace.jsonl | PASS |
+| C1-C7 | Orchestrator, Ingestion, Retrieval, Extraction, Addendum Reconciliation, Validator, Q&A/Report agents | rfp_intel/agents/nodes/*; logs/example_trace.jsonl (bonus: compare.py, go_no_go.py) | PASS |
 | C8 | Framework choice explained | README "Agent framework and roles" | PASS |
 | C9 | Shared state object | rfp_intel/agents/state.py GraphState | PASS |
 | C10 | Validator feedback loop with max retries | trace shows two retry rounds; tests/test_graph.py retry tests | PASS |
@@ -36,19 +36,19 @@ Walked row by row at the end of Phase 8. Proof = where to look.
 | T2 | Keys from env | .env only; config never prints keys | PASS |
 | T3 | One command | `python main.py --bid ./data/Bid1` | PASS |
 | T4 | Modular | rfp_intel/ingestion, search, agents, api | PASS |
-| T5 | Unit tests | `pytest -q`: 218 tests; frontend: 13 Vitest tests | PASS |
+| T5 | Unit tests | `pytest -q`: 257 tests; frontend: 26 Vitest tests; `python -m eval.smoke_e2e`: 22 end-to-end checks (docs/TESTING.md) | PASS |
 | T6 | Unseen bid works | data/MiniBid run with no code changes; no bid-specific strings in source | PASS (no real Bid3 available; see ASSUMPTIONS 78) |
 | G1 | Repo | https://github.com/abhisheksaini3232/rfp_intel | PASS |
 | G2 | README | README.md | PASS |
-| G3 | Architecture diagram | README Mermaid diagram | PASS |
+| G3 | Architecture diagram | docs/ARCHITECTURE.md (overview, sequence, messages, processes); README Mermaid diagram | PASS |
 | G4 | JSON per bid | outputs/Bid1.json, outputs/Bid2.json | PASS |
 | G5 | Retrieval report | eval/results/retrieval.md | PASS |
 | G6 | Q&A log (>= 10) | eval/qa_log.md (12) | PASS |
 | G7 | Agent trace | logs/example_trace.jsonl | PASS |
-| G8 | Demo video | not produced by the build (to be recorded by the author) | OPEN |
+| G8 | Demo video | docs/DEMO_SCRIPT.md (6-8 min walkthrough); the recording itself is made by the author | OPEN (script ready) |
 | X1 | Bonus: web UI | frontend/ (lint, test, build pass; verified against the live API) | PASS |
 | X2 | Bonus: OCR | ingestion.ocr.enabled path implemented and tested with a stubbed engine; needs Tesseract installed | PASS (partial: no Tesseract on the dev machine) |
-| X3 | Bonus: comparison agent | not implemented (Phase 9) | OPEN |
-| X4 | Bonus: go/no-go | not implemented (Phase 9) | OPEN |
-| X5 | Bonus: semantic cache + cost tracking | cost per step in every trace and run summary; semantic cache not implemented | PARTIAL |
-| X6 | Bonus: Docker + CI | not implemented (Phase 9) | OPEN |
+| X3 | Bonus: comparison agent | rfp_intel/agents/nodes/compare.py; `python main.py compare Bid1 Bid2`; POST/GET /compare; web Compare page; outputs/comparison.md; tests/test_bonus_agents.py | PASS |
+| X4 | Bonus: go/no-go | config/capabilities.yaml + rfp_intel/agents/nodes/go_no_go.py; `python main.py go-no-go --bid Bid1`; POST/GET /bids/{id}/go-no-go; web Go / no-go tab; outputs/Bid1_go_no_go.md, Bid2_go_no_go.md | PASS |
+| X5 | Bonus: semantic cache + cost tracking | rfp_intel/search/answer_cache.py (`cache.enabled`, `Answer.cached`, `cache stats/clear`); tokens + cost per step in every trace, `RunStatus.summary`, GET /metrics; tests/test_answer_cache.py | PASS |
+| X6 | Bonus: Docker + CI | Dockerfile, frontend/Dockerfile, docker-compose.yml (Qdrant + API + web); .github/workflows/ci.yml (pytest, frontend lint/test/build, retrieval eval with a recall@5 floor) | PASS |

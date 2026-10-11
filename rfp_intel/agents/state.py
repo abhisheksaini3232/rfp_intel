@@ -13,8 +13,10 @@ from rfp_intel.schemas import (
     AddendumChange,
     Answer,
     BidRecord,
+    ComparisonReport,
     EvidenceBundle,
     FieldValue,
+    GoNoGoReport,
     Plan,
     StepLog,
     ValidationResult,
@@ -30,7 +32,7 @@ class GraphState(TypedDict, total=False):
     """Everything the agents share during one run."""
 
     run_id: str
-    mode: Literal["extract", "qa"]
+    mode: Literal["extract", "qa", "compare", "go_no_go"]
     bid_ids: list[str]
     question: str | None
     plan: Plan
@@ -44,5 +46,7 @@ class GraphState(TypedDict, total=False):
     answer: Answer | None
     answer_feedback: str | None          # Q&A retry: why the validator rejected the previous draft
     record: BidRecord | None
+    comparison: ComparisonReport | None  # bonus: compare graph
+    go_no_go: GoNoGoReport | None        # bonus: go/no-go graph
     errors: Annotated[list[str], operator.add]
     usage: Annotated[list[StepLog], operator.add]

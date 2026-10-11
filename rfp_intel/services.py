@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Literal
 
-from rfp_intel.agents.graph import run_extraction, run_question
+from rfp_intel.agents.graph import run_comparison, run_extraction, run_go_no_go, run_question
 from rfp_intel.agents.runtime import get_engine
 from rfp_intel.config import ROOT, settings
 from rfp_intel.ingestion.loader import SUPPORTED_SUFFIXES, load_bid_folder
@@ -30,9 +30,11 @@ from rfp_intel.schemas import (
     BidRecord,
     BidSummary,
     Chunk,
+    ComparisonReport,
     DocType,
     Document,
     DocumentInfo,
+    GoNoGoReport,
     IndexStats,
     RunInfo,
     RunStatus,
@@ -44,7 +46,7 @@ logger = logging.getLogger("rfp_intel.runs")
 
 BID_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 EVAL_RESULTS_DIR = ROOT / "eval" / "results"
-_TERMINAL_NODES = {"report", "validate_answer"}
+_TERMINAL_NODES = {"report", "validate_answer", "compare", "go_no_go"}
 
 # Background run registry: run_id -> {"kind", "bid_id", "status", "error", "answer"}.
 # Extractions ("extract") and questions ("qa") share it; entries written by
@@ -363,9 +365,19 @@ def run_status(run_id: str) -> RunStatus:
     if not steps:
         raise KeyError(run_id)
     status = "done" if steps[-1].node in _TERMINAL_NODES and steps[-1].error is None else "failed"
-    kind = "qa" if any(s.node in ("answer", "validate_answer") for s in steps) else "extract"
+    kind = _kind_of_steps(steps)
     return RunStatus(run_id=run_id, bid_id=_bid_of_run(run_id), status=status, steps=steps, kind=kind,
                      summary=summarize_run(steps))
+
+
+def _kind_of_steps(steps: list) -> str:
+    """Run kind inferred from the nodes of a trace."""
+    nodes = {s.node for s in steps}
+    if "compare" in nodes:
+        return "compare"
+    if "go_no_go" in nodes:
+        return "go_no_go"
+    return "qa" if nodes & {"answer", "validate_answer"} else "extract"
 
 
 def _bid_of_run(run_id: str) -> str:
@@ -483,6 +495,66 @@ def get_chunk(chunk_id: str) -> Chunk | None:
             if chunk.chunk_id == chunk_id:
                 return chunk
     return None
+
+
+# ---------------------------------------------------------------- bonus: comparison and go / no-go
+
+def compare_bids(bid_ids: list[str], run_id: str | None = None) -> ComparisonReport:
+    """Side-by-side report of two or more bids from their saved records.
+
+    ValueError for fewer than two distinct bids, FileNotFoundError when a bid
+    has no record yet, RuntimeError when the node produced no report.
+    """
+    ids = list(dict.fromkeys(b.strip() for b in bid_ids if b and b.strip()))
+    if len(ids) < 2:
+        raise ValueError("compare needs at least two different bid ids")
+    for bid_id in ids:
+        if get_record(bid_id) is None:
+            raise FileNotFoundError(f"no extraction record for {bid_id!r}; run the extraction first")
+    state = run_comparison(ids, run_id=run_id)
+    report = state.get("comparison")
+    if report is None:
+        raise RuntimeError("comparison failed: " + ("; ".join(state.get("errors", [])) or "no report produced"))
+    return report
+
+
+def latest_comparison() -> ComparisonReport | None:
+    """The last saved outputs/comparison.json, or None."""
+    path = settings.path("outputs_dir") / "comparison.json"
+    if not path.is_file():
+        return None
+    try:
+        return ComparisonReport.model_validate_json(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+
+
+def assess_go_no_go(bid_id: str, run_id: str | None = None) -> GoNoGoReport:
+    """Go / no-go recommendation for a bid against config/capabilities.yaml.
+
+    FileNotFoundError when the bid has no record yet, RuntimeError when the
+    node produced no report.
+    """
+    if get_record(bid_id) is None:
+        raise FileNotFoundError(f"no extraction record for {bid_id!r}; run the extraction first")
+    state = run_go_no_go(bid_id, run_id=run_id)
+    report = state.get("go_no_go")
+    if report is None:
+        raise RuntimeError("go/no-go failed: " + ("; ".join(state.get("errors", [])) or "no report produced"))
+    return report
+
+
+def get_go_no_go(bid_id: str) -> GoNoGoReport | None:
+    """The saved outputs/<bid>_go_no_go.json, or None."""
+    if not BID_ID_PATTERN.match(bid_id or ""):
+        return None
+    path = settings.path("outputs_dir") / f"{bid_id}_go_no_go.json"
+    if not path.is_file():
+        return None
+    try:
+        return GoNoGoReport.model_validate_json(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
 
 
 # ---------------------------------------------------------------- eval and uploads

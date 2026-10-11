@@ -10,8 +10,11 @@ import type {
   BidRecord,
   BidSummary,
   Chunk,
+  CompareRequest,
+  ComparisonReport,
   ExtractionEval,
   ExtractResponse,
+  GoNoGoReport,
   Health,
   IndexStats,
   RetrievalEval,
@@ -119,4 +122,14 @@ export const api = {
     request<Chunk>(`/chunks/${encodeURIComponent(chunkId)}`),
   evalRetrieval: () => request<RetrievalEval>("/eval/retrieval"),
   evalExtraction: () => request<ExtractionEval>("/eval/extraction"),
+  /** Run the comparison agent over two or more bids (10-30 s). */
+  compare: (body: CompareRequest) => request<ComparisonReport>("/compare", jsonInit("POST", body)),
+  /** Latest saved comparison; 404 when none was run yet. */
+  getComparison: () => request<ComparisonReport>("/compare"),
+  /** Run the go / no-go agent for a bid (10-20 s). */
+  runGoNoGo: (bidId: string) =>
+    request<GoNoGoReport>(`/bids/${encodeURIComponent(bidId)}/go-no-go`, { method: "POST" }),
+  /** Saved go / no-go assessment; 404 when none was run yet. */
+  getGoNoGo: (bidId: string) =>
+    request<GoNoGoReport>(`/bids/${encodeURIComponent(bidId)}/go-no-go`),
 };

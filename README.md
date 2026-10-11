@@ -3,9 +3,13 @@
 Reads a bid folder (PDF + HTML, including addendums), indexes it in a hybrid
 search engine, and runs a LangGraph multi-agent system that extracts 20 fields
 per bid with citations, confidence and an addendum change log, and answers
-free-form questions with citations. Everything is reachable from a CLI, a
-FastAPI REST API and a React web app. It works on an unseen bid folder without
-code changes.
+free-form questions with citations. Two more agents compare bids side by
+side and give a go / no-go recommendation against a configurable company
+profile. Everything is reachable from a CLI, a FastAPI REST API and a React
+web app, runs under Docker Compose, and is checked by CI. It works on an
+unseen bid folder without code changes.
+
+[![ci](https://github.com/abhisheksaini3232/rfp_intel/actions/workflows/ci.yml/badge.svg)](https://github.com/abhisheksaini3232/rfp_intel/actions/workflows/ci.yml)
 
 ```
 data/<Bid>/*.pdf|*.html  ->  ingestion  ->  chunks  ->  Qdrant (dense) + BM25
@@ -21,9 +25,10 @@ data/<Bid>/*.pdf|*.html  ->  ingestion  ->  chunks  ->  Qdrant (dense) + BM25
 4. [Architecture](#architecture)
 5. [Design decisions](#design-decisions)
 6. [Results](#results)
-7. [Deliverables](#deliverables)
-8. [Assumptions and limitations](#assumptions-and-limitations)
-9. [Repository tree](#repository-tree)
+7. [Bonus features](#bonus-features)
+8. [Deliverables](#deliverables)
+9. [Assumptions and limitations](#assumptions-and-limitations)
+10. [Repository tree](#repository-tree)
 
 ## Setup
 
@@ -75,10 +80,15 @@ results table. Outputs: `outputs/Bid1.json` (the deliverable record),
 | Search | `python main.py search "due date" --bid Bid1 [--type addendum] [--addendum 2] [--top-k 5] [--config vector|hybrid|hybrid_rerank]` |
 | Extract (graph) | `python main.py extract --bid data/Bid1` (`--baseline` runs the single-pass extractor instead) |
 | Ask | `python main.py ask "What changed in Addendum 2?" --bid Bid1` or `python main.py --bid ./data/Bid1 --ask "..."` |
-| Evaluate | `python main.py eval retrieval` -> `eval/results/retrieval.md`; `python main.py eval extraction` -> `eval/results/extraction.md` |
+| Compare bids | `python main.py compare Bid1 Bid2` -> `outputs/comparison.md` + `.json` (needs both records; two or more bids) |
+| Go / no-go | `python main.py go-no-go --bid Bid1` -> `outputs/Bid1_go_no_go.md` + `.json` (judged against `config/capabilities.yaml`) |
+| Evaluate | `python main.py eval retrieval [--min-recall5 0.9]` -> `eval/results/retrieval.md`; `python main.py eval extraction` -> `eval/results/extraction.md` |
+| End-to-end smoke test | `python -m eval.smoke_e2e` (API running on :8001) -> `eval/results/smoke_e2e.md`; see [docs/TESTING.md](docs/TESTING.md) |
 | API | `uvicorn rfp_intel.api.server:app --reload` -> http://localhost:8000/docs |
 | Web app | `cd frontend && npm install && npm run dev` -> http://localhost:5173 (expects the API on :8000) |
 | Frontend checks | `cd frontend && npm run lint && npm test && npm run build` |
+| Tests | `pytest -q` (257 tests, no network or models needed) |
+| CI | `.github/workflows/ci.yml`: pytest, frontend checks, retrieval eval with a recall@5 floor, on every push |
 | Docker stack | `docker compose up --build` -> web app on :5173, API on :8001, Qdrant server on :6333 |
 | Answer cache | `python main.py cache stats` / `python main.py cache clear` (semantic cache, `cache.enabled`) |
 
@@ -86,6 +96,9 @@ Search queries can carry their own filters: a bid id ("Bid2"), "addendum 2",
 or a scoped document type ("only search Bid2 specs processor", "in the RFP").
 
 ## Architecture
+
+Standalone diagrams (overview, extraction sequence, message table, processes):
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```mermaid
 flowchart LR
@@ -111,16 +124,19 @@ flowchart LR
         V -- failed fields, max 2 retries --> R1
         V --> RP[Report agent] --> J[outputs/bid.json]
         O2[Orchestrator] --> R4[Retrieval agent] --> A[Q&A agent] --> VA[Validator] --> ANS[Answer + citations]
+        J --> CMP[Comparison agent] --> CR[outputs/comparison.md]
+        J --> GNG[Go/No-Go agent] --> GR[outputs/bid_go_no_go.md]
+        CAP[(config/capabilities.yaml)] --> GNG
     end
     H -. only the Retrieval agent calls search .-> R1 & R4
-    J --> API[FastAPI] --> UI[React app]
-    ANS --> API
+    J & ANS & CR & GR --> API[FastAPI] --> UI[React app]
 ```
 
 Agents communicate only through Pydantic models (`rfp_intel/schemas.py`):
 `Plan`/`Task` (Orchestrator -> Retrieval), `EvidenceRequest`/`EvidenceBundle`
 (Retrieval -> Extractors), `FieldExtraction` (LLM -> code), `FieldValue`,
-`AddendumChange`, `ValidationResult`, `BidRecord`, `Answer`. The shared state
+`AddendumChange`, `ValidationResult`, `BidRecord`, `Answer`, `ComparisonReport`,
+`GoNoGoReport`. The shared state
 is `GraphState` (`rfp_intel/agents/state.py`). Every node is wrapped in
 `@log_step`, which writes one `StepLog` line (input/output summaries, tool
 calls incl. search queries and LLM calls, tokens, cost, latency, error) to
@@ -237,6 +253,8 @@ keeps every LLM call visible in the trace.
 | Validator / Critic (`validate`) | REASON | rules (citation, quote-in-chunk, format, consistency incl. time zones) + support check; retries failed fields (max 2) |
 | Report (`report`) | REASON | Bid Summary from validated fields only; writes the record |
 | Q&A (`answer`, `validate_answer`) | REASON | cited answers or "Not found in documents"; comparison and change questions; one widened retry |
+| Comparison (`compare`, bonus) | REASON | rows per field from the saved records (`differs` computed in code), narrative + highlights written from the validated values only, citations inherited from the cells |
+| Go/No-Go (`go_no_go`, bonus) | REASON | one met / not_met / unknown verdict per criterion of `config/capabilities.yaml` from the fields it names; criteria with no stated value are decided by rule; the recommendation (go / no_go / review) is code |
 
 ### Prompts and guardrails
 
@@ -281,20 +299,21 @@ table; "Can bids be emailed?"). Per-question ranks:
 | system | Bid1 exact / partial / wrong | Bid1 accuracy | Bid2 exact / partial / wrong | Bid2 accuracy |
 |---|---|---|---|---|
 | baseline (single pass) | 15 / 2 / 2 | 0.842 | 16 / 2 / 1 | 0.895 |
-| multi-agent graph | 16 / 2 / 1 | **0.895** | 16 / 2 / 1 | **0.895** |
+| multi-agent graph | 15 / 3 / 1 | **0.868** | 16 / 2 / 1 | **0.895** |
 
 accuracy = (exact + 0.5 x partial) / 19, strict `must_contain` tokens plus an
 LLM judge for free-text fields. The two systems share the extraction code,
 so the per-bid differences are run-to-run variance of the models (they only
 run at their default temperature); what the graph adds is structural: an
 addendum change log (Bid1 Due Date: June 27 -> July 9, 2024, override),
-validation with quote-verified citations (0 failed fields, every non-null
-value cited), and a trace with explicit retries. Full tables:
+validation with quote-verified citations (every non-null value cited;
+fields that fail the support check keep their value but are marked), and a trace with explicit retries. Full tables:
 [eval/results/extraction.md](eval/results/extraction.md) (graph) and
 [eval/results/baseline/extraction.md](eval/results/baseline/extraction.md).
 
-Validation counts of the delivered records: Bid1 17 passed / 0 failed /
-3 not_found; Bid2 17 / 1 / 2. A run costs about $0.03-0.07 in LLM calls
+Validation counts of the delivered records: Bid1 13 passed / 2 failed /
+5 not_found (the two failed fields are long lists that keep their values
+and citations but did not pass the strict support check); Bid2 17 / 1 / 2. A run costs about $0.03-0.07 in LLM calls
 (gpt-6-luna for the extractors, gpt-5.4-mini for reconciliation, validation,
 Q&A and the summary; see docs/ASSUMPTIONS.md 86 for the model choice) and
 2-6 minutes on CPU, most of it retrieval.
@@ -314,11 +333,42 @@ recorded the fixture's addendum due-date override (`outputs/MiniBid.json`).
 - Demo video script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 - Backend walkthrough with diagrams: [docs/BACKEND.md](docs/BACKEND.md)
 
+## Bonus features
+
+| Bonus | Status | Where |
+|---|---|---|
+| Web UI for search and chat | done | `frontend/` (React): Bids, Bid detail with citation drawer, Search, Ask, Compare, Evaluation, Run trace |
+| OCR for scanned PDFs | done, off by default | `ingestion.ocr.enabled` with pytesseract; scanned pages are detected and logged either way (needs Tesseract installed) |
+| Bid comparison agent | done | `python main.py compare Bid1 Bid2`, `POST /compare`, Compare page -> [outputs/comparison.md](outputs/comparison.md) |
+| Go / no-go recommendation | done | `config/capabilities.yaml` (company profile) + `python main.py go-no-go --bid Bid1`, `POST /bids/{id}/go-no-go`, Go / no-go tab -> [outputs/Bid1_go_no_go.md](outputs/Bid1_go_no_go.md), [outputs/Bid2_go_no_go.md](outputs/Bid2_go_no_go.md) |
+| Semantic caching + cost/latency per run | done | `cache.enabled` (answers keyed by question embedding + bid scope, invalidated on re-index); tokens, cost and latency per step in every trace, `summary` on `GET /runs/{id}`, `GET /metrics` |
+| Docker + CI | done | `docker-compose.yml` (Qdrant + API + web), `.github/workflows/ci.yml` (pytest, frontend lint/test/build, retrieval eval gate) |
+
+The comparison and go/no-go agents work from the saved records, so both bids
+must be extracted first. The go/no-go profile shipped here is a sample
+company (authorized manufacturers, delivery window, bonding capacity, served
+regions, term policy, submission methods, cooperatives); edit it for yours.
+Each criterion names the fields it is judged on, is `critical` or not, and
+says what to conclude when the bid states nothing (`when_not_found`). The
+recommendation is deterministic: `no_go` on a critical miss, `review` when
+something is unknown or a non-critical criterion fails, `go` otherwise.
+
 ## Deliverables
 
-- `outputs/Bid1.json`, `outputs/Bid2.json` (+ `_summary.md`): 20 fields with value, sources, confidence, notes; addendum change log; validation counts.
-- `eval/results/retrieval.md`, `eval/results/extraction.md`, `eval/qa_log.md`, `logs/example_trace.jsonl`.
-- `docs/ASSUMPTIONS.md`: every decision the plan did not cover, numbered per phase.
+Mapped to the assignment brief:
+
+| Deliverable | Where |
+|---|---|
+| Source code: ingestion, RAG search engine, multi-agent system, API/CLI | `rfp_intel/ingestion`, `rfp_intel/search`, `rfp_intel/agents`, `rfp_intel/api`, `main.py` |
+| README: setup, dependencies, modes, design decisions | this file (chunking, embeddings, retrieval, agent framework, prompts above) |
+| Architecture diagram | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the diagram above |
+| JSON output per bid (values, citations, confidence) | [outputs/Bid1.json](outputs/Bid1.json), [outputs/Bid2.json](outputs/Bid2.json) (+ `_summary.md`; `outputs/MiniBid.json` for the unseen-bid check) |
+| Retrieval evaluation report (question set, Recall@k / MRR per config) | [eval/results/retrieval.md](eval/results/retrieval.md) (questions in `eval/retrieval_questions.jsonl`) |
+| Sample Q&A log (>= 10 questions) | [eval/qa_log.md](eval/qa_log.md) (12 cited answers) |
+| Agent trace (one full extraction run) | [logs/example_trace.jsonl](logs/example_trace.jsonl) |
+| Demo video | script in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md); recording to be attached to the submission |
+| Assumptions and known limitations | next section and [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) (numbered per phase) |
+| Requirements checklist | [docs/CHECKLIST.md](docs/CHECKLIST.md); testing guide [docs/TESTING.md](docs/TESTING.md); extraction eval [eval/results/extraction.md](eval/results/extraction.md); smoke test [eval/results/smoke_e2e.md](eval/results/smoke_e2e.md) |
 
 ## Assumptions and limitations
 
@@ -336,21 +386,33 @@ recorded the fixture's addendum due-date override (`outputs/MiniBid.json`).
   are left as text.
 - Chunk pages are the page a unit starts on; a quote may continue on the
   next page.
+- The comparison and go/no-go agents reason over the extracted values, not
+  the documents again: a value the extractor missed stays "Not found" in the
+  comparison and makes its criterion `unknown`. The go/no-go verdicts depend
+  on the capability profile you write; the shipped one is a sample.
+- The validator's support check is strict on long list-valued fields
+  (documentation lists, multi-tier specifications): such a field can end up
+  `failed` while still carrying its value and citations, so the counts in
+  the record are a lower bound on what was extracted.
+- CI runs the retrieval evaluation only; the extraction evaluation needs an
+  LLM key and is run locally (`python main.py eval extraction`).
 
 ## Repository tree
 
 ```
 main.py                 Typer CLI
-config/                 settings.yaml fields.yaml synonyms.yaml ingestion.yaml
+config/                 settings.yaml fields.yaml synonyms.yaml ingestion.yaml capabilities.yaml docker.yaml
 rfp_intel/
   config.py schemas.py logging_utils.py llm.py services.py
   ingestion/            loader pdf_parser html_parser cleaner classifier
   search/               chunker embedder vector_store bm25_store query fusion reranker engine
-  agents/               state rules runtime baseline graph  prompts/*.md  nodes/*.py
+  agents/               state rules runtime baseline graph  prompts/*.md  nodes/*.py (incl. compare, go_no_go)
   api/server.py         FastAPI
 frontend/               React app
-eval/                   questions, gold answers, loaders, eval runners, results/, qa_log.md
+eval/                   questions, gold answers, loaders, eval runners, smoke_e2e.py, results/, qa_log.md
 tests/                  pytest suite (fixtures/mini_bid generated by fixtures/make_mini_bid.py)
-docs/                   BUILD_PLAN.md ASSUMPTIONS.md Assignment-AI_Engineer.pdf
+docs/                   BUILD_PLAN.md ARCHITECTURE.md TESTING.md CHECKLIST.md DEMO_SCRIPT.md ASSUMPTIONS.md BACKEND.md
+.github/workflows/      ci.yml
+Dockerfile docker-compose.yml frontend/Dockerfile
 data/ outputs/ logs/ storage/
 ```

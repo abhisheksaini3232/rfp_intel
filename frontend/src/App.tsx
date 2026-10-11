@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { AskPage } from "@/pages/Ask";
 import { BidDetailPage } from "@/pages/BidDetail";
 import { BidsPage } from "@/pages/Bids";
+import { ComparePage } from "@/pages/Compare";
 import { RunTracePage } from "@/pages/RunTrace";
 import { SearchPage } from "@/pages/Search";
 import { ListSkeleton } from "@/components/States";
@@ -37,6 +38,7 @@ export default function App() {
                   <Route path="/bids/:bidId" element={<BidDetailPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/ask" element={<AskPage />} />
+                  <Route path="/compare" element={<ComparePage />} />
                   <Route
                     path="/eval"
                     element={

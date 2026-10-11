@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
@@ -212,6 +212,32 @@ class FieldSpec(BaseModel):
         return [str(item) for item in value or []]
 
 
+class Criterion(BaseModel):
+    """One go / no-go criterion from config/capabilities.yaml."""
+
+    id: str
+    label: str
+    critical: bool = False
+    fields: list[str] = []
+    capability: dict[str, Any] = {}
+    rule: str = ""
+    when_not_found: Literal["met", "not_met", "unknown"] = "unknown"
+
+
+class DecisionSettings(BaseModel):
+    """How criterion verdicts turn into a recommendation."""
+
+    unknown_critical: Literal["review", "no_go"] = "review"
+
+
+class Capabilities(BaseModel):
+    """The company profile the Go/No-Go agent judges a bid against."""
+
+    company: dict[str, Any] = {}
+    decision: DecisionSettings = DecisionSettings()
+    criteria: list[Criterion]
+
+
 class IngestionPatterns(BaseModel):
     """Parsing patterns from config/ingestion.yaml."""
 
@@ -285,6 +311,12 @@ def field_names() -> list[str]:
 def load_synonyms() -> dict[str, list[str]]:
     """Query-expansion synonyms from config/synonyms.yaml."""
     return {str(k): [str(v) for v in vals] for k, vals in _read_yaml("synonyms.yaml").items()}
+
+
+@lru_cache(maxsize=1)
+def load_capabilities() -> Capabilities:
+    """The company capability profile (config/capabilities.yaml)."""
+    return Capabilities(**_read_yaml("capabilities.yaml"))
 
 
 @lru_cache(maxsize=1)

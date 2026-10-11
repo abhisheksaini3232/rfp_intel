@@ -21,6 +21,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from rfp_intel.agents.nodes.answer import answer, validate_answer
+from rfp_intel.agents.nodes.compare import compare
+from rfp_intel.agents.nodes.go_no_go import go_no_go
 from rfp_intel.agents.nodes.extract import EXTRACT_GROUPS, EXTRACT_NODES
 from rfp_intel.agents.nodes.ingest import ingest
 from rfp_intel.agents.nodes.orchestrate import orchestrate
@@ -129,12 +131,30 @@ def build_qa_graph():
     return graph.compile()
 
 
+def build_compare_graph():
+    """START -> compare -> END (bonus: side-by-side report from saved records)."""
+    graph = StateGraph(GraphState)
+    graph.add_node("compare", compare)
+    graph.add_edge(START, "compare")
+    graph.add_edge("compare", END)
+    return graph.compile()
+
+
+def build_go_no_go_graph():
+    """START -> go_no_go -> END (bonus: recommendation against config/capabilities.yaml)."""
+    graph = StateGraph(GraphState)
+    graph.add_node("go_no_go", go_no_go)
+    graph.add_edge(START, "go_no_go")
+    graph.add_edge("go_no_go", END)
+    return graph.compile()
+
+
 def initial_state(mode: str, bid_ids: list[str], question: str | None = None, run_id: str | None = None) -> dict[str, Any]:
     """A fresh GraphState."""
     return {"run_id": run_id or new_run_id(), "mode": mode, "bid_ids": list(bid_ids), "question": question,
             "evidence": {}, "drafts": {}, "addendum_changes": [], "validation": {}, "retries": {},
             "to_retry": [], "widened": False, "answer": None, "answer_feedback": None, "record": None,
-            "errors": [], "usage": []}
+            "comparison": None, "go_no_go": None, "errors": [], "usage": []}
 
 
 def run_extraction(bid_id: str, run_id: str | None = None) -> dict:
@@ -145,3 +165,13 @@ def run_extraction(bid_id: str, run_id: str | None = None) -> dict:
 def run_question(question: str, bid_ids: list[str], run_id: str | None = None) -> dict:
     """Run the Q&A graph; returns the final state (answer in state["answer"])."""
     return build_qa_graph().invoke(initial_state("qa", bid_ids, question=question, run_id=run_id))
+
+
+def run_comparison(bid_ids: list[str], run_id: str | None = None) -> dict:
+    """Run the comparison graph; the report is in state["comparison"]."""
+    return build_compare_graph().invoke(initial_state("compare", bid_ids, run_id=run_id))
+
+
+def run_go_no_go(bid_id: str, run_id: str | None = None) -> dict:
+    """Run the go/no-go graph for one bid; the report is in state["go_no_go"]."""
+    return build_go_no_go_graph().invoke(initial_state("go_no_go", [bid_id], run_id=run_id))

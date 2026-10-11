@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { BarChart3, FolderOpen, Menu, MessageSquare, Moon, Search, Sun } from "lucide-react";
+import { BarChart3, Columns3, FolderOpen, Menu, MessageSquare, Moon, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -13,6 +13,7 @@ const NAV = [
   { to: "/", label: "Bids", icon: FolderOpen, end: true },
   { to: "/search", label: "Search", icon: Search, end: false },
   { to: "/ask", label: "Ask", icon: MessageSquare, end: false },
+  { to: "/compare", label: "Compare", icon: Columns3, end: false },
   { to: "/eval", label: "Evaluation", icon: BarChart3, end: false },
 ];
 

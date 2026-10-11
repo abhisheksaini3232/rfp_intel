@@ -117,7 +117,7 @@ export interface StepLog {
   error: string | null;
 }
 
-export type RunKind = "extract" | "qa";
+export type RunKind = "extract" | "qa" | "compare" | "go_no_go";
 
 /** GET /runs/{id}: an extraction, or a question whose `answer` is filled when done. */
 export interface RunStatus {
@@ -272,6 +272,71 @@ export interface ExtractionBidResult {
 export interface ExtractionEval {
   judge: boolean;
   bids: ExtractionBidResult[];
+}
+
+// ---- Comparison and go / no-go (cross-bid agents) ----
+
+/** One bid's value of a field inside a comparison row. */
+export interface ComparisonCell {
+  bid_id: string;
+  value: string | string[] | null;
+  status: FieldStatus;
+  confidence: number;
+  notes: string;
+  sources: Citation[];
+}
+
+export interface ComparisonRow {
+  field: string;
+  cells: ComparisonCell[];
+  /** True when the bids disagree on this field. */
+  differs: boolean;
+}
+
+export interface ComparisonHighlight {
+  field: string;
+  note: string;
+  sources: Citation[];
+}
+
+export interface ComparisonReport {
+  bid_ids: string[];
+  rows: ComparisonRow[];
+  narrative: string;
+  highlights: ComparisonHighlight[];
+  generated_at: string;
+  run_id: string;
+}
+
+export interface CompareRequest {
+  bid_ids: string[];
+}
+
+export type CriterionStatus = "met" | "not_met" | "unknown";
+
+export interface CriterionResult {
+  criterion: string;
+  label: string;
+  status: CriterionStatus;
+  critical: boolean;
+  reason: string;
+  /** Extraction fields the judgement was based on. */
+  fields: string[];
+  sources: Citation[];
+}
+
+export type Recommendation = "go" | "no_go" | "review";
+
+export interface GoNoGoReport {
+  bid_id: string;
+  recommendation: Recommendation;
+  criteria: CriterionResult[];
+  summary: string;
+  met: number;
+  not_met: number;
+  unknown: number;
+  generated_at: string;
+  run_id: string;
 }
 
 export interface ApiErrorBody {

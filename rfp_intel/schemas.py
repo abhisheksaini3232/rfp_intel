@@ -116,7 +116,7 @@ class Task(BaseModel):
 class Plan(BaseModel):
     """The orchestrator's plan for a run."""
 
-    mode: Literal["extract", "qa"]
+    mode: Literal["extract", "qa", "compare", "go_no_go"]
     question_type: Literal["extract", "single", "comparison", "changes"] = "extract"
     tasks: list[Task]
 
@@ -270,6 +270,102 @@ class Answer(BaseModel):
     cached: bool = False                 # served from the semantic answer cache
 
 
+# ---- bonus agents: bid comparison and go / no-go ----
+class ComparisonCell(BaseModel):
+    """One bid's value of one field inside a comparison row."""
+
+    bid_id: str
+    value: str | list[str] | None
+    status: Literal["ok", "not_found", "failed"]
+    confidence: float
+    notes: str = ""
+    sources: list[Citation] = []
+
+
+class ComparisonRow(BaseModel):
+    """One field across every compared bid."""
+
+    field: str
+    cells: list[ComparisonCell]
+    differs: bool                        # values are not all equivalent across the bids
+
+
+class ComparisonHighlight(BaseModel):
+    """A notable difference the Comparison agent wrote about, with the cells' citations."""
+
+    field: str
+    note: str
+    sources: list[Citation] = []
+
+
+class ComparisonHighlightDraft(BaseModel):
+    """One highlight as the LLM returns it (citations are attached in code)."""
+
+    field: str
+    note: str
+
+
+class ComparisonDraft(BaseModel):        # LLM output of the Comparison agent
+    """Narrative plus per-field highlights; fields must be names from the table."""
+
+    narrative: str
+    highlights: list[ComparisonHighlightDraft]
+
+
+class ComparisonReport(BaseModel):      # outputs/comparison.json
+    """Side-by-side comparison of two or more bids built from their saved records."""
+
+    bid_ids: list[str]
+    rows: list[ComparisonRow]
+    narrative: str
+    highlights: list[ComparisonHighlight] = []
+    generated_at: str
+    run_id: str
+
+
+CriterionStatus = Literal["met", "not_met", "unknown"]
+
+
+class CriterionCheck(BaseModel):         # LLM output of the Go/No-Go agent, per criterion
+    """The LLM's verdict for one capability criterion."""
+
+    criterion: str
+    status: CriterionStatus
+    reason: str = ""
+
+
+class CriterionChecks(BaseModel):
+    """One verdict per criterion."""
+
+    items: list[CriterionCheck]
+
+
+class CriterionResult(BaseModel):
+    """Final verdict for one criterion with the citations of the fields it used."""
+
+    criterion: str
+    label: str
+    status: CriterionStatus
+    critical: bool
+    reason: str = ""
+    fields: list[str] = []
+    sources: list[Citation] = []
+
+
+class GoNoGoReport(BaseModel):           # outputs/<bid>_go_no_go.json
+    """Go / no-go recommendation for one bid against config/capabilities.yaml."""
+
+    bid_id: str
+    recommendation: Literal["go", "no_go", "review"]
+    criteria: list[CriterionResult]
+    summary: str
+    met: int
+    not_met: int
+    unknown: int
+    generated_at: str
+    run_id: str
+
+
 class StepLog(BaseModel):                # one line of logs/trace_<run_id>.jsonl
     """Observability record for one graph step."""
 
@@ -288,7 +384,7 @@ class StepLog(BaseModel):                # one line of logs/trace_<run_id>.jsonl
     error: str | None = None
 
 
-RunKind = Literal["extract", "qa"]
+RunKind = Literal["extract", "qa", "compare", "go_no_go"]
 
 
 class RunSummary(BaseModel):

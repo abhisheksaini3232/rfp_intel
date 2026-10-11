@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Loader2, Play } from "lucide-react";
 import type { AddendumChange, BidRecord, DocumentSummary, FieldValue } from "@/api/types";
 import { CitationChip } from "@/components/CitationChip";
 import { FieldsTable } from "@/components/FieldsTable";
+import { GoNoGoPanel } from "@/components/GoNoGoPanel";
 import { PageHeader } from "@/components/PageHeader";
 import { RunSteps } from "@/components/RunSteps";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/States";
@@ -16,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBidDetail } from "@/hooks/useBids";
 import { useCitationDrawer } from "@/hooks/useCitationDrawer";
 import { useExtractRun } from "@/hooks/useExtractRun";
+import { useGoNoGo, useRunGoNoGo } from "@/hooks/useGoNoGo";
 import { useRecord } from "@/hooks/useRecord";
 import { docTypeLabel, formatDate, formatValue } from "@/lib/utils";
 
@@ -48,13 +50,15 @@ function fieldText(record: BidRecord | null | undefined, name: string): string |
   return formatValue(field.value);
 }
 
-/** Bid detail: header, Overview / Fields / Addendum changes / Documents tabs. */
+/** Bid detail: header, Overview / Fields / Addendum changes / Documents / Go no-go tabs. */
 export function BidDetailPage() {
   const { bidId = "" } = useParams<{ bidId: string }>();
   const [params, setParams] = useSearchParams();
   const detail = useBidDetail(bidId);
   const record = useRecord(bidId);
   const run = useExtractRun(bidId);
+  const goNoGo = useGoNoGo(bidId);
+  const runGoNoGo = useRunGoNoGo(bidId);
   const autoStarted = useRef(false);
 
   // "Run extraction" offered from the upload toast arrives as ?extract=1.
@@ -77,6 +81,10 @@ export function BidDetailPage() {
     if (run.status.status === "done") toast.success(`Extraction finished for ${bidId}`);
     else toast.error(`Extraction failed for ${bidId}`);
   }, [run.finished, run.status, bidId]);
+
+  useEffect(() => {
+    if (runGoNoGo.error) toast.error(runGoNoGo.error.message);
+  }, [runGoNoGo.error]);
 
   const rec = record.data ?? null;
   const title = fieldText(rec, F.title);
@@ -151,6 +159,7 @@ export function BidDetailPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="go-no-go">Go / no-go</TabsTrigger>
           </TabsList>
         </div>
 
@@ -181,6 +190,18 @@ export function BidDetailPage() {
             <ErrorState title="Could not load documents" message={detail.error.message} onRetry={() => void detail.refetch()} />
           )}
           {detail.data && <DocumentsTable documents={detail.data.documents} />}
+        </TabsContent>
+        <TabsContent value="go-no-go">
+          <RecordGate record={record} onRun={() => run.start()} running={run.running || Boolean(run.busyWith)}>
+            {() => (
+              <GoNoGoGate
+                bidId={bidId}
+                assessment={goNoGo}
+                onRun={() => runGoNoGo.mutate()}
+                running={runGoNoGo.isPending}
+              />
+            )}
+          </RecordGate>
         </TabsContent>
       </Tabs>
     </div>
@@ -217,6 +238,25 @@ function RecordGate({
     );
   }
   return <>{children(record.data)}</>;
+}
+
+/** Loading / error handling for the go / no-go tab; the panel shows its own empty state. */
+function GoNoGoGate({
+  bidId,
+  assessment,
+  onRun,
+  running,
+}: {
+  bidId: string;
+  assessment: ReturnType<typeof useGoNoGo>;
+  onRun: () => void;
+  running: boolean;
+}) {
+  if (assessment.isLoading) return <ListSkeleton rows={4} />;
+  if (assessment.isError) {
+    return <ErrorState title="Could not load the assessment" message={assessment.error.message} onRetry={() => void assessment.refetch()} />;
+  }
+  return <GoNoGoPanel bidId={bidId} report={assessment.data ?? null} onRun={onRun} running={running} />;
 }
 
 function Overview({ record }: { record: BidRecord }) {

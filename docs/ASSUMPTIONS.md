@@ -562,3 +562,50 @@ Each entry: decision, reason, phase it was made in.
     finished run expose them. `GET /metrics` is plain JSON from in-process
     counters (no Prometheus dependency; an API restart resets it).
     `api.max_question_chars` (1000) rejects oversized questions with 422.
+
+## Phase 9 (bonuses: comparison, go / no-go, CI)
+
+94. **Comparison agent works from saved records, not from a new retrieval.**
+    `python main.py compare Bid1 Bid2` (and `POST /compare`) reads
+    `outputs/<bid>.json` for each bid; a bid without a record is an error
+    that names the command to run (exit 2 / HTTP 404) rather than a silent
+    extraction, because an extraction costs minutes and LLM calls and the
+    user should start it knowingly. The rows (one per configured field, a
+    cell per bid, `differs` = normalized values are not all equal, all-missing
+    counts as equal) are built in code; the LLM writes only the narrative and
+    the highlights from those validated values, and each highlight inherits
+    the citations of the cells it names (an unknown field name is dropped).
+    The plan named `outputs/comparison.md`; `comparison.json` is written next
+    to it and `GET /compare` returns the latest one, so a second comparison
+    replaces the first. Two or more bids are accepted.
+95. **Go / no-go: criteria live in `config/capabilities.yaml`, the decision is
+    code.** Each criterion lists the extracted fields it is judged on, the
+    capability values, a rule in prose, `critical` and `when_not_found`. A
+    criterion none of whose fields has a value is decided by `when_not_found`
+    without an LLM call (bonding and contract vehicle default to met: a bid
+    that states no bond or vehicle needs none; the others to unknown). One
+    structured LLM call judges the remaining criteria from the field values
+    only. The recommendation is deterministic: `no_go` when a critical
+    criterion is not met, `review` when anything is unknown or a non-critical
+    criterion is not met (an unknown critical criterion becomes `no_go` with
+    `decision.unknown_critical: no_go`), else `go`. A third value, `review`,
+    was added to the brief's go / no-go because an automatic "go" on unknown
+    facts would be a guess. The shipped profile is a sample company
+    (authorized for the common device manufacturers, 45-day delivery,
+    bonding to $250k, a few served states and cooperatives) and is meant to
+    be edited; nothing in it refers to a particular bid. Both bonus graphs
+    are single-node LangGraph graphs so their runs are traced like the others
+    (`GET /runs/{id}` reports kind `compare` / `go_no_go`).
+96. **CI runs the retrieval evaluation, not the extraction one.** The
+    extraction eval needs an LLM key and real runs; the retrieval eval needs
+    only the local models and the shipped bids, so the workflow indexes Bid1
+    and Bid2 and fails below `--min-recall5 0.9` (the best config scores
+    1.0). torch is installed from the CPU wheel index first so the pinned
+    requirement resolves without the CUDA build. The unit-test job sets a
+    fake `LLM_API_KEY` because the wrapper checks for its presence; no test
+    calls a provider.
+97. **End-to-end smoke test (`eval/smoke_e2e.py`).** `pytest` runs with
+    fakes, so a separate script checks every API endpoint and CLI mode
+    against the real engine, LLM and bids and writes
+    `eval/results/smoke_e2e.md`. CLI modes that would open the embedded
+    store are checked through the API (the API process holds the store).

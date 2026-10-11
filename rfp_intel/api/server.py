@@ -21,7 +21,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from rfp_intel import services
 from rfp_intel.agents.runtime import close_engine, get_engine
 from rfp_intel.config import settings
-from rfp_intel.schemas import Answer, BidDetail, BidRecord, BidSummary, Chunk, IndexStats, RunInfo, RunStatus, SearchHit
+from rfp_intel.schemas import (
+    Answer,
+    BidDetail,
+    BidRecord,
+    BidSummary,
+    Chunk,
+    ComparisonReport,
+    GoNoGoReport,
+    IndexStats,
+    RunInfo,
+    RunStatus,
+    SearchHit,
+)
 
 _MEDIA_TYPES = {".pdf": "application/pdf", ".html": "text/html", ".htm": "text/html"}
 
@@ -56,6 +68,12 @@ class AskRequest(BaseModel):
         if len(text) > limit:
             raise ValueError(f"question is {len(text)} characters; the limit is {limit}")
         return text
+
+
+class CompareRequest(BaseModel):
+    """POST /compare body: two or more bid ids with saved records."""
+
+    bid_ids: list[str]
 
 
 class SearchResponse(BaseModel):
@@ -300,6 +318,44 @@ def file(bid_id: str, file_name: str) -> FileResponse:
         raise HTTPException(404, f"file not found: {file_name}")
     media_type = _MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
     return FileResponse(path, media_type=media_type, filename=path.name, content_disposition_type="inline")
+
+
+@app.post("/compare", response_model=ComparisonReport)
+def compare(body: CompareRequest) -> ComparisonReport:
+    """Run the Comparison agent over the bids' saved records (bonus); also saved as outputs/comparison.*."""
+    try:
+        return services.compare_bids(body.bid_ids)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.get("/compare", response_model=ComparisonReport)
+def latest_comparison() -> ComparisonReport:
+    """The last comparison report written by POST /compare or the CLI."""
+    report = services.latest_comparison()
+    if report is None:
+        raise HTTPException(404, "no comparison yet; POST /compare or run: python main.py compare Bid1 Bid2")
+    return report
+
+
+@app.post("/bids/{bid_id}/go-no-go", response_model=GoNoGoReport)
+def assess_go_no_go(bid_id: str) -> GoNoGoReport:
+    """Run the Go/No-Go agent for a bid against config/capabilities.yaml (bonus)."""
+    try:
+        return services.assess_go_no_go(bid_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.get("/bids/{bid_id}/go-no-go", response_model=GoNoGoReport)
+def go_no_go(bid_id: str) -> GoNoGoReport:
+    """The saved go / no-go report of a bid."""
+    report = services.get_go_no_go(bid_id)
+    if report is None:
+        raise HTTPException(404, f"no go/no-go report for bid {bid_id!r}; POST /bids/{bid_id}/go-no-go")
+    return report
 
 
 @app.get("/eval/retrieval")

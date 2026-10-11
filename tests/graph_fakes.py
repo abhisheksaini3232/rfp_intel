@@ -8,6 +8,10 @@ from rfp_intel import llm
 from rfp_intel.schemas import (
     AnswerDraft,
     Chunk,
+    ComparisonDraft,
+    ComparisonHighlightDraft,
+    CriterionCheck,
+    CriterionChecks,
     DocType,
     FieldExtraction,
     FieldExtractions,
@@ -138,8 +142,9 @@ class ScriptedLLM:
     """Stands in for llm.structured / llm.text; `overrides` tweak values per field per call."""
 
     def __init__(self, overrides: dict[str, list[tuple[str, str]]] | None = None, fail: Exception | None = None,
-                 reject_answer_once: bool = False):
+                 reject_answer_once: bool = False, criterion_verdicts: dict[str, str] | None = None):
         self.overrides = overrides or {}
+        self.criterion_verdicts = criterion_verdicts
         self.fail = fail
         self.reject_answer_once = reject_answer_once
         self.calls: list[str] = []
@@ -172,6 +177,16 @@ class ScriptedLLM:
             eid = evidence_id_for(prompt, "July 9, 2024") or "E1"
             return AnswerDraft(answer="The due date is July 9, 2024 at 2:00 PM CST.", found=True,
                                evidence_ids=[eid], quotes=["July 9, 2024 at 2:00 PM CST"]), usage
+        if model_cls is ComparisonDraft:
+            return ComparisonDraft(
+                narrative="Both bids procure laptops; the due dates differ.",
+                highlights=[ComparisonHighlightDraft(field="Due Date", note="BidT is due July 9, 2024; the other is not stated."),
+                            ComparisonHighlightDraft(field="No Such Field", note="dropped by code")]), usage
+        if model_cls is CriterionChecks:
+            ids = re.findall(r"^- id: (\S+)", prompt, re.M)
+            verdict = self.criterion_verdicts or {}
+            return CriterionChecks(items=[CriterionCheck(criterion=i, status=verdict.get(i, "met"),
+                                                         reason=f"{i} judged from the values") for i in ids]), usage
         raise AssertionError(f"unexpected model {model_cls}")
 
     def text(self, prompt, model, system=None):

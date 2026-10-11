@@ -2,7 +2,7 @@
 
     python main.py --bid ./data/Bid1              index + extract + results table
     python main.py --bid ./data/Bid1 --ask "..."  answer one question
-    python main.py parse|index|search|extract|ask|run|compare ...
+    python main.py parse|index|search|extract|ask|run|compare|go-no-go ...
     python main.py eval retrieval|extraction
 """
 
@@ -34,12 +34,6 @@ cache_app = typer.Typer(help="Semantic answer cache (config: cache.enabled, cach
 app.add_typer(cache_app, name="cache")
 
 console = Console()
-
-
-def _not_ready(command: str, phase: str) -> None:
-    """Report that a command is planned for a later phase and exit non-zero."""
-    console.print(f"[yellow]`{command}` is not implemented yet (BUILD_PLAN {phase}).[/yellow]")
-    raise typer.Exit(code=1)
 
 
 @app.callback(invoke_without_command=True)
@@ -266,11 +260,64 @@ def run(bid: str = typer.Option(..., "--bid", help="Bid folder or id")) -> None:
 
 @app.command()
 def compare(
-    bid_a: str = typer.Argument(..., help="First bid id"),
-    bid_b: str = typer.Argument(..., help="Second bid id"),
+    bids: list[str] = typer.Argument(..., help="Two or more bid ids with saved records, e.g. Bid1 Bid2"),
 ) -> None:
-    """Compare two bids side by side (bonus)."""
-    _not_ready("compare", "Phase 9")
+    """Compare bids side by side from their saved records -> outputs/comparison.md (bonus)."""
+    from rfp_intel import services
+    from rfp_intel.agents.runtime import close_engine
+
+    ids = [Path(b).name for b in bids]
+    try:
+        report = services.compare_bids(ids)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    finally:
+        close_engine()
+    console.print(report.narrative)
+    table = Table(title=f"{' vs '.join(report.bid_ids)} -> outputs/comparison.md (run {report.run_id})",
+                  show_lines=True)
+    for column in ["field", *report.bid_ids, "differs"]:
+        table.add_column(column)
+    for row in report.rows:
+        table.add_row(row.field, *[_cell_text(c.value) for c in row.cells], "yes" if row.differs else "")
+    console.print(table)
+    for item in report.highlights:
+        console.print(f"  [bold]{item.field}[/bold]: {item.note}")
+
+
+def _cell_text(value, width: int = 60) -> str:
+    """A comparison cell for the terminal table."""
+    from rfp_intel.agents.baseline import value_text
+
+    text = value_text(value).replace("\n", " ") if value is not None else "Not found in documents"
+    return text if len(text) <= width else text[: width - 3] + "..."
+
+
+@app.command(name="go-no-go")
+def go_no_go_command(bid: str = typer.Option(..., "--bid", help="Bid folder or id (extracted already)")) -> None:
+    """Go / no-go recommendation against config/capabilities.yaml -> outputs/<bid>_go_no_go.md (bonus)."""
+    from rfp_intel import services
+    from rfp_intel.agents.nodes.go_no_go import LABELS
+    from rfp_intel.agents.runtime import close_engine
+
+    bid_id = _bid_folder(bid).name
+    try:
+        report = services.assess_go_no_go(bid_id)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    finally:
+        close_engine()
+    colour = {"go": "green", "no_go": "red", "review": "yellow"}[report.recommendation]
+    console.print(f"[bold {colour}]{LABELS[report.recommendation]}[/bold {colour}] for {bid_id}: {report.summary}")
+    table = Table(title=f"outputs/{bid_id}_go_no_go.md (run {report.run_id})", show_lines=True)
+    for column in ("criterion", "status", "critical", "reason", "#citations"):
+        table.add_column(column)
+    for item in report.criteria:
+        table.add_row(item.label, item.status.replace("_", " "), "yes" if item.critical else "",
+                      item.reason, str(len(item.sources)))
+    console.print(table)
 
 
 @cache_app.command("clear")
@@ -300,7 +347,10 @@ def cache_stats() -> None:
 
 
 @eval_app.command("retrieval")
-def eval_retrieval() -> None:
+def eval_retrieval(
+    min_recall5: Optional[float] = typer.Option(None, "--min-recall5",
+                                               help="Exit 1 when the best config's recall@5 is below this (CI gate)"),
+) -> None:
     """Recall@k and MRR for each retrieval config -> eval/results/retrieval.md."""
     from eval.run_retrieval_eval import RESULTS_DIR, run_retrieval_eval
 
@@ -316,6 +366,11 @@ def eval_retrieval() -> None:
     if misses:
         console.print("misses (question/config): " + ", ".join(f"{q}/{c}" for q, c in misses))
     console.print(f"wrote {RESULTS_DIR / 'retrieval.md'} and retrieval.json")
+    if min_recall5 is not None:
+        best = max(values.get("recall@5", 0.0) for values in report["summary"].values())
+        if best < min_recall5:
+            console.print(f"[red]best recall@5 {best:.3f} is below the floor {min_recall5:.3f}[/red]")
+            raise typer.Exit(code=1)
 
 
 @eval_app.command("extraction")
