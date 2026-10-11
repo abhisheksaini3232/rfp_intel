@@ -30,6 +30,7 @@ from rfp_intel.schemas import (
     Chunk,
     ComparisonReport,
     GoNoGoReport,
+    IndexStarted,
     IndexStats,
     RunInfo,
     RunStatus,
@@ -206,21 +207,22 @@ def bids() -> list[BidSummary]:
     return services.list_bids()
 
 
-@app.post("/bids", response_model=IndexStats)
-def upload_bid(bid_id: str = Form(...), files: list[UploadFile] = File(...)) -> IndexStats:
-    """Save uploaded files into data/<bid_id> and index them.
+@app.post("/bids", response_model=IndexStarted, status_code=202)
+def upload_bid(bid_id: str = Form(...), files: list[UploadFile] = File(...)) -> IndexStarted:
+    """Save uploaded files into data/<bid_id> and start indexing in the background.
 
-    Deliberately a sync endpoint: indexing a large PDF blocks for minutes, and
-    FastAPI runs `def` endpoints in a worker thread, so the rest of the API
-    keeps answering. As `async def` this would block the event loop and freeze
-    every other request until the index finished.
+    Returns as soon as the bytes are on disk. Parsing and embedding a large PDF
+    takes minutes, so it runs in a worker thread: the bid is listed immediately
+    with `indexing=True` and the caller can poll `GET /bids` or `GET /runs/{id}`
+    instead of holding the request open.
     """
     payload = [(upload.filename or "", upload.file.read()) for upload in files]
     try:
         folder = services.save_upload(bid_id, payload)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return services.index_bid(folder)
+    run_id = services.start_indexing(folder)
+    return IndexStarted(bid_id=folder.name, run_id=run_id, documents=len(payload))
 
 
 @app.post("/index", response_model=IndexStats)

@@ -61,16 +61,19 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
 
   const upload = useMutation({
     mutationFn: () => api.uploadBid(bidId.trim(), files),
-    onSuccess: (stats) => {
+    // The server replies once the files are on disk; parsing and embedding run
+    // in the background, so the dialog closes straight away and the new card
+    // shows "indexing" until it is ready.
+    onSuccess: (started) => {
       void queryClient.invalidateQueries({ queryKey: bidsQueryKey });
-      const id = stats.bid_id;
-      toast.success(`Indexed ${id}: ${stats.documents} documents, ${stats.chunks_total} chunks`, {
-        description: stats.warnings.length ? `${stats.warnings.length} warning(s)` : undefined,
+      const id = started.bid_id;
+      toast.success(`Uploaded ${started.documents} file${started.documents === 1 ? "" : "s"} to ${id}`, {
+        description: "Indexing in the background. The card shows when it is ready to extract.",
         action: {
-          label: "Run extraction",
-          onClick: () => navigate(`/bids/${encodeURIComponent(id)}?extract=1`),
+          label: "Open bid",
+          onClick: () => navigate(`/bids/${encodeURIComponent(id)}`),
         },
-        duration: 10_000,
+        duration: 8_000,
       });
       reset();
       onOpenChange(false);
@@ -78,13 +81,9 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
     onError: (err) => toast.error(err.message),
   });
 
-  /** Closing while the upload runs is allowed: the mutation finishes in the background. */
+  /** Closing mid-upload is allowed: only the file transfer is still in flight. */
   const closeDialog = (next: boolean) => {
-    if (!next && upload.isPending) {
-      toast.info(`Indexing ${bidId.trim()} in the background`, {
-        description: "Large PDFs take a few minutes. The bid appears on the Bids page when it is ready.",
-      });
-    }
+    if (!next && upload.isPending) toast.info("Upload continues in the background");
     onOpenChange(next);
   };
 
@@ -108,9 +107,8 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
         <DialogHeader className="pr-6">
           <DialogTitle>Add bid</DialogTitle>
           <DialogDescription>
-            Choose a bid id and drop the RFP, addenda and forms (PDF or HTML). The files are saved
-            and indexed immediately; a large PDF can take a few minutes, and you can close this
-            dialog while it finishes.
+            Choose a bid id and drop the RFP, addenda and forms (PDF or HTML). Indexing starts as
+            soon as the files are uploaded and continues in the background, so you can keep working.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -221,7 +219,7 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
             </Button>
             <Button type="submit" disabled={!canSubmit}>
               {upload.isPending && <Loader2 className="animate-spin" />}
-              {upload.isPending ? "Uploading and indexing..." : `Upload ${files.length || ""} file${files.length === 1 ? "" : "s"}`}
+              {upload.isPending ? "Uploading..." : `Upload ${files.length || ""} file${files.length === 1 ? "" : "s"}`}
             </Button>
           </DialogFooter>
         </form>

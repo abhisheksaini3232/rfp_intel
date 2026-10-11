@@ -3,9 +3,18 @@ import { api } from "@/api/client";
 
 export const bidsQueryKey = ["bids"] as const;
 
-/** All bids known to the API (list page + bid switcher). */
+/** All bids known to the API (list page + bid switcher).
+ *
+ * Polls every 3 s while an upload is still being indexed, so the card flips
+ * from "indexing" to "indexed" on its own, then stops polling.
+ */
 export function useBids() {
-  return useQuery({ queryKey: bidsQueryKey, queryFn: api.listBids });
+  return useQuery({
+    queryKey: bidsQueryKey,
+    queryFn: api.listBids,
+    refetchInterval: (query) =>
+      query.state.data?.some((bid) => bid.indexing) ? 3_000 : false,
+  });
 }
 
 /** Documents and index stats of one bid. */

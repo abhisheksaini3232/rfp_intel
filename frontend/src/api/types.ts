@@ -186,8 +186,17 @@ export interface BidSummary {
   due_date_changed_by: number | null;
   doc_count: number;
   indexed: boolean;
+  /** An upload is still being parsed and embedded. */
+  indexing: boolean;
   last_run: string | null;
   validation: ValidationCounts | null;
+}
+
+/** POST /bids (202): files are saved, indexing continues in the background. */
+export interface IndexStarted {
+  bid_id: string;
+  run_id: string;
+  documents: number;
 }
 
 /** DELETE /bids/{bid_id}: what was removed. */
@@ -212,6 +221,8 @@ export interface BidDetail {
   documents: DocumentSummary[];
   indexed: boolean;
   chunks: number;
+  /** An upload is still being parsed and embedded. */
+  indexing: boolean;
 }
 
 export interface ExtractResponse {

@@ -13,7 +13,7 @@ import { ComparePage } from "@/pages/Compare";
 import { renderWithProviders, sampleCitation } from "@/test/utils";
 
 const bid = (bid_id: string): BidSummary => ({
-  bid_id, title: null, agency: null, due_date: null, due_date_changed_by: null, doc_count: 1, indexed: true, last_run: null, validation: null,
+  bid_id, title: null, agency: null, due_date: null, due_date_changed_by: null, doc_count: 1, indexed: true, indexing: false, last_run: null, validation: null,
 });
 
 const otherCitation: Citation = { file: "other-rfp.pdf", page: 2, chunk_id: "def456:2:1", quote: "Bids are due at noon." };

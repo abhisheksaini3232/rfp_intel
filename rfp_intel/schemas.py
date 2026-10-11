@@ -95,6 +95,14 @@ class IndexStats(BaseModel):
     seconds: float = 0.0
 
 
+class IndexStarted(BaseModel):           # POST /bids (202)
+    """Files are saved; parsing and embedding continue in the background."""
+
+    bid_id: str
+    run_id: str
+    documents: int                       # files written to data/<bid_id>
+
+
 class SearchHit(BaseModel):
     """One search result with its final score and per-retriever ranks."""
 
@@ -385,7 +393,7 @@ class StepLog(BaseModel):                # one line of logs/trace_<run_id>.jsonl
     error: str | None = None
 
 
-RunKind = Literal["extract", "qa", "compare", "go_no_go"]
+RunKind = Literal["extract", "qa", "compare", "go_no_go", "index"]
 
 
 class RunSummary(BaseModel):
@@ -433,6 +441,7 @@ class BidSummary(BaseModel):            # GET /bids row (Phase 7a)
     due_date_changed_by: int | None = None   # addendum number that overrode "Due Date"
     doc_count: int = 0
     indexed: bool = False
+    indexing: bool = False                   # an upload is still being parsed and embedded
     last_run: str | None = None              # generated_at of the saved record
     validation: dict[str, int] | None = None
 
@@ -464,6 +473,7 @@ class BidDetail(BaseModel):              # GET /bids/{bid_id}
     documents: list[DocumentInfo]
     indexed: bool
     chunks: int
+    indexing: bool = False               # an upload is still being parsed and embedded
 
 
 class Usage(BaseModel):

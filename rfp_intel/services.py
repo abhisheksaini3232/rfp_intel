@@ -55,6 +55,8 @@ _TERMINAL_NODES = {"report", "validate_answer", "compare", "go_no_go"}
 # older code (no "kind") are read as extractions.
 _runs: dict[str, dict[str, Any]] = {}
 _runs_lock = threading.Lock()
+# bid_id -> run_id of an upload still being parsed and embedded (guarded by _runs_lock).
+_indexing: dict[str, str] = {}
 # Only one extraction at a time (single Qdrant client, CPU-bound embedding).
 _extract_lock = threading.Lock()
 # Questions run on a small pool; `_ask_pool` is created on first use so tests and
@@ -195,6 +197,42 @@ def start_extraction(bid_id: str) -> str:
 
     threading.Thread(target=worker, name=f"extract-{run_id}", daemon=True).start()
     return run_id
+
+
+def start_indexing(folder: Path) -> str:
+    """Index a bid folder in a daemon thread; return its run_id.
+
+    The caller (POST /bids) returns as soon as the files are on disk, so a large
+    PDF is parsed and embedded without holding the request open. While it runs
+    the bid is listed with `indexing=True` and refuses removal.
+    """
+    folder = Path(folder)
+    bid_id = folder.name
+    run_id = new_run_id()
+    _register_run(run_id, "index", bid_id)
+    with _runs_lock:
+        _indexing[bid_id] = run_id
+
+    def worker() -> None:
+        try:
+            stats = index_bid(folder)
+            _set_run(run_id, "done")
+            logger.info("indexed %s: %d documents, %d chunks in %.1fs",
+                        bid_id, stats.documents, stats.chunks_total, stats.seconds)
+        except Exception as exc:  # noqa: BLE001 - a failed index is reported, never raised
+            _set_run(run_id, "failed", f"{type(exc).__name__}: {exc}")
+        finally:
+            with _runs_lock:
+                _indexing.pop(bid_id, None)
+
+    threading.Thread(target=worker, name=f"index-{bid_id}", daemon=True).start()
+    return run_id
+
+
+def indexing_bids() -> set[str]:
+    """Bid ids whose upload is still being parsed and embedded."""
+    with _runs_lock:
+        return set(_indexing)
 
 
 def start_question(question: str, bid_ids: list[str] | None = None) -> str:
@@ -448,6 +486,7 @@ def list_bids() -> list[BidSummary]:
     if not data_dir.is_dir():
         return []
     indexed = set(get_engine().known_bids())
+    busy = indexing_bids()
     summaries: list[BidSummary] = []
     for folder in sorted(p for p in data_dir.iterdir() if p.is_dir()):
         record = get_record(folder.name)
@@ -459,6 +498,7 @@ def list_bids() -> list[BidSummary]:
             due_date_changed_by=_due_date_changed_by(record) if record else None,
             doc_count=len(_input_files(folder)),
             indexed=folder.name in indexed,
+            indexing=folder.name in busy,
             last_run=record.generated_at if record else None,
             validation=dict(record.validation) if record else None,
         ))
@@ -499,7 +539,8 @@ def get_bid_detail(bid_id: str) -> BidDetail:
     ) for doc in documents]
     indexed = bid_id in set(get_engine().known_bids())
     return BidDetail(bid_id=bid_id, documents=infos, indexed=indexed,
-                     chunks=len(_bid_chunks(bid_id)) if indexed else 0)
+                     chunks=len(_bid_chunks(bid_id)) if indexed else 0,
+                     indexing=bid_id in indexing_bids())
 
 
 def get_chunk(chunk_id: str) -> Chunk | None:
@@ -612,6 +653,8 @@ def remove_bid(bid_id: str) -> RemoveResult:
     running = active_run()
     if running is not None and running.bid_id == bid_id:
         raise RuntimeError(f"extraction {running.run_id} of {bid_id} is still running")
+    if bid_id in indexing_bids():
+        raise RuntimeError(f"{bid_id} is still being indexed; wait for it to finish")
     folder = bid_folder(bid_id)
     indexed = get_engine().remove_bid(bid_id)
     if not folder.is_dir() and not indexed and not record_path(bid_id).exists():

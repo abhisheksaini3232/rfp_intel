@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from types import SimpleNamespace
 
@@ -189,9 +190,51 @@ def test_upload_validation_and_success(client, workspace):
     ok = client.post("/bids", data={"bid_id": "NewBid"},
                      files=[("files", ("a.pdf", b"%PDF", "application/pdf")),
                             ("files", ("page.html", b"<html></html>", "text/html"))])
-    assert ok.status_code == 200
-    assert set(ok.json()) >= {"bid_id", "documents", "chunks_added", "chunks_total"} and ok.json()["bid_id"] == "NewBid"
+    assert ok.status_code == 202, "the upload returns as soon as the files are saved"
+    body = ok.json()
+    assert body["bid_id"] == "NewBid" and body["documents"] == 2 and body["run_id"]
     assert sorted(p.name for p in (workspace / "data" / "NewBid").iterdir()) == ["a.pdf", "page.html"]
+    _wait_for_run(client, body["run_id"])
+
+
+def test_upload_returns_before_indexing_finishes_and_reports_progress(client, workspace, monkeypatch):
+    """The request must not wait for the index; the bid is listed as `indexing` meanwhile."""
+    release = threading.Event()
+    engine = runtime.get_engine()
+    original = engine.index_bid
+
+    def slow_index(folder, force=False):
+        assert release.wait(timeout=30), "index_bid was never released"
+        return original(folder, force=force)
+
+    monkeypatch.setattr(engine, "index_bid", slow_index)
+
+    started = time.perf_counter()
+    ok = client.post("/bids", data={"bid_id": "SlowBid"},
+                     files=[("files", ("a.pdf", b"%PDF", "application/pdf"))])
+    elapsed = time.perf_counter() - started
+    assert ok.status_code == 202 and elapsed < 5, f"upload blocked for {elapsed:.1f}s"
+
+    row = next(b for b in client.get("/bids").json() if b["bid_id"] == "SlowBid")
+    assert row["indexing"] is True and row["doc_count"] == 1
+    assert client.get("/bids/SlowBid").json()["indexing"] is True
+    assert client.delete("/bids/SlowBid").status_code == 409, "cannot remove a bid mid-index"
+
+    release.set()
+    _wait_for_run(client, ok.json()["run_id"])
+    assert not any(b["indexing"] for b in client.get("/bids").json())
+
+
+def test_a_failing_index_is_reported_on_the_run_not_raised(client, workspace, monkeypatch):
+    engine = runtime.get_engine()
+    monkeypatch.setattr(engine, "index_bid", lambda *a, **k: (_ for _ in ()).throw(OSError("disk gone")))
+
+    ok = client.post("/bids", data={"bid_id": "BrokenBid"},
+                     files=[("files", ("a.pdf", b"%PDF", "application/pdf"))])
+    assert ok.status_code == 202
+    run = _wait_for_run(client, ok.json()["run_id"])
+    assert run["status"] == "failed" and "disk gone" in run["error"]
+    assert not any(b["indexing"] for b in client.get("/bids").json())
 
 
 def test_index_by_bid_id_or_path(client, workspace):

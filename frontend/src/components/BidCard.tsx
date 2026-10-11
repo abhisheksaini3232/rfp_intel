@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Building2, CalendarDays, FileStack } from "lucide-react";
+import { Building2, CalendarDays, FileStack, Loader2 } from "lucide-react";
 import type { BidSummary } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,9 +21,15 @@ export function BidCard({ bid }: { bid: BidSummary }) {
               <p className="font-mono text-xs text-muted-foreground">{bid.bid_id}</p>
               <CardTitle className="mt-1 line-clamp-2">{bid.title ?? "Untitled bid"}</CardTitle>
             </div>
-            <Badge variant={bid.indexed ? "accent" : "secondary"} className="shrink-0">
-              {bid.indexed ? "indexed" : "not indexed"}
-            </Badge>
+            {bid.indexing ? (
+              <Badge variant="secondary" className="shrink-0 gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> indexing
+              </Badge>
+            ) : (
+              <Badge variant={bid.indexed ? "accent" : "secondary"} className="shrink-0">
+                {bid.indexed ? "indexed" : "not indexed"}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">

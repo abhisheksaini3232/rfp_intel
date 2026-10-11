@@ -261,10 +261,19 @@ class Smoke:
         source = ROOT / "data" / self.bids[0]
         files = [("files", (path.name, path.read_bytes())) for path in sorted(source.iterdir())
                  if path.suffix.lower() in (".pdf", ".html", ".htm")]
+        started = time.perf_counter()
         upload = httpx.post(f"{self.api}/bids", data={"bid_id": tmp_bid}, files=files, timeout=600)
-        assert upload.status_code == 200, f"upload -> {upload.status_code}: {upload.text[:200]}"
-        chunks = upload.json()["chunks_total"]
+        elapsed = time.perf_counter() - started
+        assert upload.status_code == 202, f"upload -> {upload.status_code}: {upload.text[:200]}"
+        run_id = upload.json()["run_id"]
         assert tmp_bid in {r["bid_id"] for r in self.get("/bids")}, "uploaded bid not listed"
+        # Indexing runs in the background: the API must stay responsive meanwhile.
+        assert self.get("/health")["status"] == "ok", "API unresponsive while indexing"
+        assert httpx.delete(f"{self.api}/bids/{tmp_bid}", timeout=30).status_code == 409, \
+            "a bid being indexed must not be removable"
+        run = self.wait_run(run_id)
+        assert run["status"] == "done", f"index run failed: {run.get('error')}"
+        chunks = self.get(f"/bids/{tmp_bid}")["chunks"]
         removed = httpx.delete(f"{self.api}/bids/{tmp_bid}", timeout=120)
         assert removed.status_code == 200, f"delete -> {removed.status_code}: {removed.text[:200]}"
         body = removed.json()
@@ -273,7 +282,8 @@ class Smoke:
         assert tmp_bid not in self.get("/health")["indexed_bids"], "bid still indexed after DELETE"
         assert httpx.delete(f"{self.api}/bids/{tmp_bid}", timeout=60).status_code == 404
         assert not (ROOT / "data" / tmp_bid).exists()
-        return f"uploaded {len(files)} files ({chunks} chunks), removed; second DELETE -> 404"
+        return (f"uploaded {len(files)} files in {elapsed:.1f}s (202, indexed in the background to "
+                f"{chunks} chunks), removed; second DELETE -> 404")
 
     def check_cli_help(self) -> str:
         result = self.cli("--help")
