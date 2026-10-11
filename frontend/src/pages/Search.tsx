@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search as SearchIcon } from "lucide-react";
 import { DOC_TYPES, SEARCH_CONFIGS, type DocType, type SearchConfig, type SearchParams } from "@/api/types";
+import { PageHeader } from "@/components/PageHeader";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/States";
 import { Button } from "@/components/ui/button";
@@ -50,13 +51,10 @@ export function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Search</h1>
-        <p className="text-sm text-muted-foreground">Hybrid vector + keyword search over every indexed document.</p>
-      </div>
+      <PageHeader title="Search" description="Hybrid vector + keyword search over every indexed document." />
 
-      <form onSubmit={onSubmit} className="space-y-3 rounded-lg border bg-card p-4">
-        <div className="flex gap-2">
+      <form onSubmit={onSubmit} className="space-y-3 rounded-lg border bg-card p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             aria-label="Search query"
             placeholder="e.g. bid bond amount, warranty period, submission deadline"
@@ -64,11 +62,11 @@ export function SearchPage() {
             onChange={(e) => setDraft({ ...draft, q: e.target.value })}
             autoFocus
           />
-          <Button type="submit" disabled={!draft.q.trim()}>
+          <Button type="submit" disabled={!draft.q.trim()} className="w-full sm:w-auto">
             <SearchIcon /> Search
           </Button>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Select value={draft.bid_id ?? ANY} onValueChange={(v) => setDraft({ ...draft, bid_id: v === ANY ? undefined : v })}>
             <SelectTrigger aria-label="Bid filter"><SelectValue placeholder="All bids" /></SelectTrigger>
             <SelectContent>
@@ -118,7 +116,7 @@ export function SearchPage() {
       )}
       {hits.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground" aria-live="polite">
             {hits.length} result{hits.length === 1 ? "" : "s"} · {submitted.config}
           </p>
           {hits.map((hit) => (

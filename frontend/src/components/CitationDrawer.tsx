@@ -59,7 +59,7 @@ function CitationCard({
 }) {
   return (
     <li
-      className={cn("rounded-lg border p-4", active && "border-primary ring-1 ring-primary")}
+      className={cn("rounded-lg border p-3 sm:p-4", active && "border-primary ring-1 ring-primary")}
       data-testid="citation-card"
     >
       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -74,8 +74,8 @@ function CitationCard({
       <blockquote className="border-l-2 border-primary/50 pl-3 text-sm leading-relaxed">
         {citation.quote || <span className="italic text-muted-foreground">No quote</span>}
       </blockquote>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="truncate font-mono text-[11px] text-muted-foreground" title={citation.chunk_id}>
+      <div className="mt-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <span className="max-w-full truncate font-mono text-[11px] text-muted-foreground" title={citation.chunk_id}>
           {citation.chunk_id}
         </span>
         <OpenFileLink citation={citation} bidId={bidId} />

@@ -46,7 +46,7 @@ export function EmptyState({ title, message, action, className }: EmptyStateProp
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center",
+        "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center sm:p-10",
         className,
       )}
     >
@@ -72,7 +72,7 @@ export function ListSkeleton({ rows = 5, className }: { rows?: number; className
 /** Card grid skeleton. */
 export function CardsSkeleton({ count = 3 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-4 xl:grid-cols-3" aria-busy="true" aria-label="Loading">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading">
       {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} className="h-52 w-full" />
       ))}

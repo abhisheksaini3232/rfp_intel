@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ExtractionEval, ExtractionFieldResult, RetrievalEval, RetrievalMetric } from "@/api/types";
+import { PageHeader } from "@/components/PageHeader";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/States";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,10 +34,10 @@ export function EvaluationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Evaluation</h1>
-        <p className="text-sm text-muted-foreground">Retrieval quality per configuration and extraction accuracy against the gold answers.</p>
-      </div>
+      <PageHeader
+        title="Evaluation"
+        description="Retrieval quality per configuration and extraction accuracy against the gold answers."
+      />
 
       <section className="space-y-4" aria-labelledby="retrieval-heading">
         <h2 id="retrieval-heading" className="text-lg font-semibold">Retrieval</h2>
@@ -88,7 +89,7 @@ function RetrievalSection({ data }: { data: RetrievalEval }) {
           <CardDescription>{questions.length} question{questions.length === 1 ? "" : "s"}; higher is better.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-72" role="img" aria-label="Bar chart of recall at 1, 3, 5, 10 and MRR for each retrieval configuration">
+          <div className="h-56 sm:h-72" role="img" aria-label="Bar chart of recall at 1, 3, 5, 10 and MRR for each retrieval configuration">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rows} barGap={2} barCategoryGap="25%">
                 <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
@@ -99,9 +100,9 @@ function RetrievalSection({ data }: { data: RetrievalEval }) {
                   contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, color: "hsl(var(--foreground))", fontSize: 12 }}
                   formatter={(value) => (typeof value === "number" ? value.toFixed(3) : String(value))}
                 />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                 {configs.map((c, i) => (
-                  <Bar key={c} dataKey={c} name={c} fill={colors[i]} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                  <Bar key={c} dataKey={c} name={c} fill={colors[i]} radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -149,8 +150,8 @@ function RetrievalSection({ data }: { data: RetrievalEval }) {
                 <TableRow>
                   <TableHead>Id</TableHead>
                   <TableHead>Question</TableHead>
-                  <TableHead>Bid</TableHead>
-                  <TableHead>Expected file</TableHead>
+                  <TableHead className="hidden md:table-cell">Bid</TableHead>
+                  <TableHead className="hidden lg:table-cell">Expected file</TableHead>
                   {configs.map((c) => <TableHead key={c} className="text-right">{c}</TableHead>)}
                 </TableRow>
               </TableHeader>
@@ -158,12 +159,12 @@ function RetrievalSection({ data }: { data: RetrievalEval }) {
                 {questions.map((q) => (
                   <TableRow key={q.id}>
                     <TableCell className="font-mono text-xs">{q.id}</TableCell>
-                    <TableCell className="max-w-md">
+                    <TableCell className="min-w-[14rem] max-w-md">
                       <span className="line-clamp-2" title={q.question}>{q.question}</span>
                       {q.key_phrase && <span className="block truncate text-xs text-muted-foreground" title={q.key_phrase}>"{q.key_phrase}"</span>}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{q.bid_id}</TableCell>
-                    <TableCell className="max-w-xs truncate font-mono text-xs" title={q.expected_file}>{q.expected_file}</TableCell>
+                    <TableCell className="hidden font-mono text-xs md:table-cell">{q.bid_id}</TableCell>
+                    <TableCell className="hidden max-w-xs truncate font-mono text-xs lg:table-cell" title={q.expected_file}>{q.expected_file}</TableCell>
                     {configs.map((c) => <RankCell key={c} rank={q.ranks?.[c] ?? null} />)}
                   </TableRow>
                 ))}
@@ -212,7 +213,7 @@ function ExtractionSection({ data }: { data: ExtractionEval }) {
         const fields: ExtractionFieldResult[] = Array.isArray(result.fields) ? result.fields : [];
         return (
           <Card key={result.bid_id}>
-            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+            <CardHeader className="flex-col gap-2 space-y-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <CardTitle className="font-mono">{result.bid_id}</CardTitle>
               <div className="flex flex-wrap gap-1.5 text-xs">
                 <Badge>accuracy {(result.accuracy * 100).toFixed(0)}%</Badge>
@@ -238,19 +239,19 @@ function ExtractionSection({ data }: { data: ExtractionEval }) {
                       <TableHead>Gold</TableHead>
                       <TableHead>Output</TableHead>
                       <TableHead>Score</TableHead>
-                      <TableHead>Reason</TableHead>
+                      <TableHead className="hidden md:table-cell">Reason</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fields.map((f, i) => (
                       <TableRow key={`${f.field}-${i}`} className={f.counted === false ? "text-muted-foreground" : undefined}>
                         <TableCell className="font-medium">{f.field}</TableCell>
-                        <TableCell className="max-w-xs"><span className="line-clamp-2" title={show(f.gold)}>{show(f.gold)}</span></TableCell>
-                        <TableCell className="max-w-xs"><span className="line-clamp-2" title={show(f.output)}>{show(f.output)}</span></TableCell>
+                        <TableCell className="min-w-[8rem] max-w-xs"><span className="line-clamp-2" title={show(f.gold)}>{show(f.gold)}</span></TableCell>
+                        <TableCell className="min-w-[8rem] max-w-xs"><span className="line-clamp-2" title={show(f.output)}>{show(f.output)}</span></TableCell>
                         <TableCell>
                           <Badge variant="outline" className={SCORE_CLASS[f.score] ?? ""}>{String(f.score).replace("_", " ")}</Badge>
                         </TableCell>
-                        <TableCell className="max-w-sm text-xs text-muted-foreground">
+                        <TableCell className="hidden max-w-sm text-xs text-muted-foreground md:table-cell">
                           <span className="line-clamp-2" title={f.reason ?? ""}>{f.reason ?? "-"}</span>
                         </TableCell>
                       </TableRow>

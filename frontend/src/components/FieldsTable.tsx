@@ -29,14 +29,14 @@ export function FieldsTable({ bidId, fields }: FieldsTableProps) {
   };
 
   return (
-    <Table>
+    <Table className="table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[200px]">Field</TableHead>
+          <TableHead className="w-[30%] md:w-[180px]">Field</TableHead>
           <TableHead>Value</TableHead>
-          <TableHead className="w-[140px]">Confidence</TableHead>
-          <TableHead className="w-[100px]">Status</TableHead>
-          <TableHead className="w-[220px]">Citations</TableHead>
+          <TableHead className="hidden w-[120px] md:table-cell">Confidence</TableHead>
+          <TableHead className="w-[88px]">Status</TableHead>
+          <TableHead className="hidden lg:table-cell lg:w-[190px] xl:w-[280px]">Citations</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -52,23 +52,23 @@ export function FieldsTable({ bidId, fields }: FieldsTableProps) {
               onClick={() => openRow(name, field)}
               onKeyDown={(e) => onKeyDown(e, name, field)}
             >
-              <TableCell className="font-medium">{name}</TableCell>
-              <TableCell className="max-w-md">
+              <TableCell className="align-top font-medium md:align-middle">{name}</TableCell>
+              <TableCell className="align-top md:align-middle">
                 {field.value === null ? (
-                  <span className="italic text-muted-foreground">{field.notes || NOT_FOUND_TEXT}</span>
+                  <span className="italic text-muted-foreground [overflow-wrap:anywhere]">{field.notes || NOT_FOUND_TEXT}</span>
                 ) : (
-                  <span className="line-clamp-3 whitespace-pre-wrap break-words" title={text}>
+                  <span className="line-clamp-3 whitespace-pre-wrap [overflow-wrap:anywhere]" title={text}>
                     {text}
                   </span>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden md:table-cell">
                 <ConfidenceBar confidence={field.confidence} />
               </TableCell>
-              <TableCell>
+              <TableCell className="whitespace-nowrap align-top md:align-middle">
                 <StatusBadge status={field.status} />
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden lg:table-cell">
                 <div className="flex flex-wrap gap-1">
                   {field.sources.length === 0 && (
                     <span className="text-xs text-muted-foreground">-</span>
@@ -77,6 +77,7 @@ export function FieldsTable({ bidId, fields }: FieldsTableProps) {
                     <CitationChip
                       key={`${c.chunk_id}-${i}`}
                       citation={c}
+                      className="lg:max-w-[11rem] xl:max-w-[16rem]"
                       onClick={() => openRow(name, field, i)}
                     />
                   ))}

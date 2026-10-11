@@ -456,3 +456,24 @@ Each entry: decision, reason, phase it was made in.
     disables the button as "Busy: extracting <bid>", and the toast shows
     the server's message. Runs are kept in memory, so an API restart
     forgets them; a trace file still answers `GET /runs/{id}`.
+89. **Responsive web app (phone to wide desktop).** The shell no longer
+    forces a 1024px minimum width. Below the `lg` breakpoint the sidebar
+    is replaced by a hamburger that opens the navigation in a left-hand
+    sheet (closed automatically on route change); the bid switcher and
+    theme toggle stay in the sticky top bar. Page headers share one
+    `PageHeader` component that stacks title, description and actions on
+    phones. Grids collapse to one column (bids, overview, evaluation),
+    forms stack (search query + four filters), tab lists and suggested
+    questions scroll horizontally, and chat bubbles widen to ~90% on
+    phones. Wide tables keep every column in the DOM but hide the
+    lower-priority ones below a breakpoint (`hidden md:table-cell`):
+    Fields hides Confidence below `md` and Citations below `lg` (the row
+    click still opens the drawer with everything); Documents hides
+    Addendum / Tables / Warnings; Evaluation hides Bid, Expected file and
+    Reason. The Fields table uses fixed layout so the Value column takes
+    the remaining width and long tokens wrap with `overflow-wrap:
+    anywhere` instead of pushing the table past the viewport. Dialogs are
+    inset 1rem on phones with a stacked footer; the citation sheet is
+    full-width below `sm`. The evaluation bar chart no longer animates
+    (it rendered empty in headless captures and prints). Checked with
+    headless Chromium screenshots at 390, 768, 1024 and 1440px.

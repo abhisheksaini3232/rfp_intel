@@ -21,8 +21,8 @@ export function RunTracePage() {
             <ArrowLeft className="h-3 w-3" /> {run.data.bid_id}
           </Link>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight">Run trace</h1>
-        <p className="font-mono text-sm text-muted-foreground">{runId}</p>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Run trace</h1>
+        <p className="break-all font-mono text-xs text-muted-foreground sm:text-sm">{runId}</p>
       </div>
 
       {run.isLoading && <ListSkeleton rows={6} />}
@@ -31,7 +31,7 @@ export function RunTracePage() {
       )}
       {run.data && (
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <RunSteps steps={run.data.steps} status={run.data.status} />
           </CardContent>
         </Card>

@@ -70,7 +70,7 @@ export function ChatMessage({ entry }: { entry: ChatEntry }) {
   if (entry.kind === "question") {
     return (
       <div className="flex justify-end gap-2">
-        <div className="max-w-[80%] rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">{entry.text}</div>
+        <div className="max-w-[88%] [overflow-wrap:anywhere] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground sm:max-w-[80%] sm:px-4">{entry.text}</div>
         <Avatar icon={<User className="h-4 w-4" />} />
       </div>
     );
@@ -80,7 +80,7 @@ export function ChatMessage({ entry }: { entry: ChatEntry }) {
     return (
       <div className="flex gap-2">
         <Avatar icon={<Bot className="h-4 w-4" />} />
-        <div className="max-w-[80%] rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm">{entry.text}</div>
+        <div className="max-w-[88%] [overflow-wrap:anywhere] rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm sm:max-w-[80%] sm:px-4">{entry.text}</div>
       </div>
     );
   }
@@ -98,8 +98,8 @@ export function ChatMessage({ entry }: { entry: ChatEntry }) {
   return (
     <div className="flex gap-2">
       <Avatar icon={<Bot className="h-4 w-4" />} />
-      <div className="max-w-[85%] space-y-3 rounded-lg border bg-card px-4 py-3 text-sm">
-        <div className="space-y-1.5 leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs [&_table]:text-xs [&_td]:border [&_td]:px-1.5 [&_th]:border [&_th]:px-1.5">
+      <div className="min-w-0 max-w-[92%] space-y-3 rounded-lg border bg-card px-3 py-3 text-sm sm:max-w-[85%] sm:px-4">
+        <div className="[overflow-wrap:anywhere] space-y-1.5 leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs [&_table]:block [&_table]:overflow-x-auto [&_table]:text-xs [&_td]:border [&_td]:px-1.5 [&_th]:border [&_th]:px-1.5">
           <ReactMarkdown
             components={{
               p: ({ children }) => <p><Markers {...markerProps}>{children}</Markers></p>,

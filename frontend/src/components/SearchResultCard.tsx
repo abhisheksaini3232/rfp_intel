@@ -52,11 +52,11 @@ export function SearchResultCard({ hit, query }: { hit: SearchHit; query: string
         }
       }}
     >
-      <CardContent className="space-y-2 p-4">
+      <CardContent className="space-y-2 p-3 sm:p-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1 font-mono">
-            <FileText className="h-3.5 w-3.5" />
-            {chunk.file_name}
+          <span className="flex min-w-0 items-center gap-1 font-mono">
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate" title={chunk.file_name}>{chunk.file_name}</span>
           </span>
           <span>p.{chunk.page}</span>
           <Badge variant="secondary">{docTypeLabel(chunk.doc_type)}</Badge>

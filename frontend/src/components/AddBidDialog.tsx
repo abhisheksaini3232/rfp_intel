@@ -139,12 +139,12 @@ export function AddBidDialog({ open, onOpenChange }: AddBidDialogProps) {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center text-sm text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-5 text-center sm:p-6 text-sm text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               dragging ? "border-primary bg-accent" : "hover:border-primary/60",
             )}
           >
             <Upload className="h-6 w-6" />
-            <span>Drag and drop files here, or click to browse</span>
+            <span><span className="hidden sm:inline">Drag and drop files here, or click</span><span className="sm:hidden">Tap</span> to browse</span>
             <span className="text-xs">PDF, HTML</span>
             <input
               ref={inputRef}

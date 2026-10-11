@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Loader2, Play } from "lucide-react";
 import type { AddendumChange, BidRecord, DocumentSummary, FieldValue } from "@/api/types";
 import { CitationChip } from "@/components/CitationChip";
 import { FieldsTable } from "@/components/FieldsTable";
+import { PageHeader } from "@/components/PageHeader";
 import { RunSteps } from "@/components/RunSteps";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/States";
 import { Badge } from "@/components/ui/badge";
@@ -83,18 +84,18 @@ export function BidDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-1">
+      <PageHeader
+        eyebrow={
           <Link to="/" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3 w-3" /> All bids
           </Link>
-          <h1 className="truncate text-2xl font-semibold tracking-tight">
-            {title ?? bidId}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        }
+        title={title ?? bidId}
+        description={
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-mono">{bidId}</span>
             {fieldText(rec, F.bidNumber) && <span>· {fieldText(rec, F.bidNumber)}</span>}
-            {fieldText(rec, F.agency) && <span>· {fieldText(rec, F.agency)}</span>}
+            {fieldText(rec, F.agency) && <span className="min-w-0">· {fieldText(rec, F.agency)}</span>}
             {fieldText(rec, F.dueDate) && <span>· due {fieldText(rec, F.dueDate)}</span>}
             {detail.data && (
               <Badge variant={detail.data.indexed ? "accent" : "secondary"}>
@@ -102,22 +103,24 @@ export function BidDetailPage() {
               </Badge>
             )}
           </div>
-        </div>
-        <Button
-          onClick={() => run.start()}
-          disabled={run.starting || run.running || Boolean(run.busyWith)}
-          title={run.busyWith ? `An extraction is running for ${run.busyWith}; wait for it to finish.` : undefined}
-        >
-          {run.starting || run.running || run.busyWith ? <Loader2 className="animate-spin" /> : <Play />}
-          {run.running ? "Extracting..." : run.busyWith ? `Busy: extracting ${run.busyWith}` : "Run extraction"}
-        </Button>
-      </div>
+        }
+        actions={
+          <Button
+            onClick={() => run.start()}
+            disabled={run.starting || run.running || Boolean(run.busyWith)}
+            title={run.busyWith ? `An extraction is running for ${run.busyWith}; wait for it to finish.` : undefined}
+          >
+            {run.starting || run.running || run.busyWith ? <Loader2 className="animate-spin" /> : <Play />}
+            {run.running ? "Extracting..." : run.busyWith ? `Busy: extracting ${run.busyWith}` : "Run extraction"}
+          </Button>
+        }
+      />
 
       {run.status && (
         <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
             <CardTitle>Extraction run</CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="link" size="sm">
                 <Link to={`/runs/${encodeURIComponent(run.status.run_id)}`}>
                   Full trace <ArrowRight />
@@ -137,7 +140,8 @@ export function BidDetailPage() {
       )}
 
       <Tabs value={tab} onValueChange={(v) => { params.set("tab", v); setParams(params, { replace: true }); }}>
-        <TabsList>
+        <div className="-mx-4 scroll-x px-4 no-scrollbar sm:mx-0 sm:px-0">
+          <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="fields">Fields</TabsTrigger>
           <TabsTrigger value="changes">
@@ -147,7 +151,8 @@ export function BidDetailPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview">
           <RecordGate record={record} onRun={() => run.start()} running={run.running || Boolean(run.busyWith)}>
@@ -221,8 +226,8 @@ function Overview({ record }: { record: BidRecord }) {
     open({ title: name, bidId: record.bid_id, citations: field.sources, notes: field.notes });
 
   return (
-    <div className="grid grid-cols-3 gap-4">
-      <Card className="col-span-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Bid Summary</CardTitle>
         </CardHeader>
@@ -244,7 +249,7 @@ function Overview({ record }: { record: BidRecord }) {
           <CardTitle>Key facts</CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="space-y-3 text-sm">
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
             {KEY_FACTS.map(({ label, field }) => {
               const value = fieldText(record, field);
               const fv = record.fields[field];
@@ -274,15 +279,15 @@ function Overview({ record }: { record: BidRecord }) {
           </dl>
         </CardContent>
       </Card>
-      <Card className="col-span-3">
-        <CardContent className="flex flex-wrap items-center gap-4 p-4 text-sm text-muted-foreground">
+      <Card className="lg:col-span-3">
+        <CardContent className="flex flex-col gap-2 p-4 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <span>
             Validation: <strong className="text-green-700 dark:text-green-400">{record.validation.passed} passed</strong>,{" "}
             <strong className="text-red-700 dark:text-red-400">{record.validation.failed} failed</strong>,{" "}
             <strong>{record.validation.not_found} not found</strong>
           </span>
           <span>Generated {formatDate(record.generated_at)}</span>
-          <Link to={`/runs/${encodeURIComponent(record.run_id)}`} className="font-mono text-xs underline-offset-4 hover:underline">
+          <Link to={`/runs/${encodeURIComponent(record.run_id)}`} className="break-all font-mono text-xs underline-offset-4 hover:underline">
             run {record.run_id}
           </Link>
         </CardContent>
@@ -298,7 +303,7 @@ function AddendumTimeline({ bidId, changes }: { bidId: string; changes: Addendum
   }
   const sorted = [...changes].sort((a, b) => a.addendum_number - b.addendum_number);
   return (
-    <ol className="relative space-y-4 border-l pl-6">
+    <ol className="relative ml-2 space-y-4 border-l pl-6 sm:ml-0">
       {sorted.map((c, i) => (
         <li key={`${c.field}-${c.addendum_number}-${i}`} className="relative">
           <span className="absolute -left-[31px] top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -311,12 +316,12 @@ function AddendumTimeline({ bidId, changes }: { bidId: string; changes: Addendum
                 <Badge variant="secondary">{c.kind}</Badge>
                 <span className="text-xs text-muted-foreground">Addendum {c.addendum_number}</span>
               </div>
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
-                <div className="rounded-md bg-muted p-2 line-through decoration-muted-foreground/60">
+              <div className="grid grid-cols-1 items-center gap-2 text-sm sm:grid-cols-[1fr_auto_1fr] sm:gap-3">
+                <div className="min-w-0 break-words rounded-md bg-muted p-2 line-through decoration-muted-foreground/60">
                   {c.old_value ?? <span className="italic text-muted-foreground">(none)</span>}
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                <div className="rounded-md border border-primary/40 bg-accent/40 p-2">{c.new_value}</div>
+                <ArrowRight className="h-4 w-4 rotate-90 justify-self-center text-muted-foreground sm:rotate-0" aria-hidden="true" />
+                <div className="min-w-0 break-words rounded-md border border-primary/40 bg-accent/40 p-2">{c.new_value}</div>
               </div>
               <CitationChip
                 citation={c.source}
@@ -342,21 +347,21 @@ function DocumentsTable({ documents }: { documents: DocumentSummary[] }) {
             <TableRow>
               <TableHead>File</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Addendum</TableHead>
+              <TableHead className="hidden sm:table-cell">Addendum</TableHead>
               <TableHead className="text-right">Pages</TableHead>
-              <TableHead className="text-right">Tables</TableHead>
-              <TableHead>Warnings</TableHead>
+              <TableHead className="hidden text-right sm:table-cell">Tables</TableHead>
+              <TableHead className="hidden md:table-cell">Warnings</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {documents.map((d) => (
               <TableRow key={d.file_name}>
-                <TableCell className="font-mono text-xs">{d.file_name}</TableCell>
-                <TableCell><Badge variant="secondary">{docTypeLabel(d.doc_type)}</Badge></TableCell>
-                <TableCell>{d.addendum_number ?? "-"}</TableCell>
+                <TableCell className="max-w-[12rem] font-mono text-xs [overflow-wrap:anywhere] sm:max-w-none">{d.file_name}</TableCell>
+                <TableCell><Badge variant="secondary" className="whitespace-nowrap">{docTypeLabel(d.doc_type)}</Badge></TableCell>
+                <TableCell className="hidden sm:table-cell">{d.addendum_number ?? "-"}</TableCell>
                 <TableCell className="text-right tabular-nums">{d.pages}</TableCell>
-                <TableCell className="text-right tabular-nums">{d.tables}</TableCell>
-                <TableCell>
+                <TableCell className="hidden text-right tabular-nums sm:table-cell">{d.tables}</TableCell>
+                <TableCell className="hidden md:table-cell">
                   {d.warnings.length === 0 ? (
                     <span className="text-xs text-muted-foreground">none</span>
                   ) : (

@@ -28,7 +28,7 @@ export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <StatusPill status={status} />
-        <span className="text-muted-foreground">
+        <span className="min-w-0 text-muted-foreground">
           {steps.length} step{steps.length === 1 ? "" : "s"} · {sum.tokens.toLocaleString()} tokens ·{" "}
           {formatUsd(sum.cost)} · {(sum.latency / 1000).toFixed(1)}s
           {sum.errors > 0 && <span className="text-red-600 dark:text-red-400"> · {sum.errors} error(s)</span>}
@@ -39,7 +39,7 @@ export function RunSteps({ steps, status, compact = false }: RunStepsProps) {
           {status === "running" ? "Waiting for the first step..." : "No steps were recorded."}
         </p>
       ) : (
-        <ol className="relative space-y-2 border-l pl-4">
+        <ol className="relative ml-1 space-y-2 border-l pl-4">
           {steps.map((step) => (
             <li key={`${step.run_id}-${step.step}`} className="relative">
               <span

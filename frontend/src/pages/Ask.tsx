@@ -49,13 +49,13 @@ export function AskPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-7.5rem)] flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ask</h1>
+    <div className="flex h-[calc(100dvh-5.5rem)] flex-col gap-3 sm:h-[calc(100dvh-7.5rem)] sm:gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Ask</h1>
           <p className="text-sm text-muted-foreground">Every answer cites the exact passages it was built from.</p>
         </div>
-        <fieldset className="flex flex-wrap items-center justify-end gap-1.5">
+        <fieldset className="flex flex-wrap items-center gap-1.5 sm:justify-end">
           <legend className="sr-only">Bids in scope</legend>
           <span className="mr-1 text-xs text-muted-foreground">Scope:</span>
           {(bids.data ?? []).map((b) => {
@@ -84,7 +84,7 @@ export function AskPage() {
         </fieldset>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/30 p-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/30 p-3 sm:p-4">
         {entries.length === 0 && (
           <EmptyState
             title="Ask anything about the bids"
@@ -103,16 +103,16 @@ export function AskPage() {
       </div>
 
       <div className="space-y-2">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="-mx-4 flex gap-1.5 scroll-x px-4 pb-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0" aria-label="Suggested questions">
           {SUGGESTED_QUESTIONS.map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => submit(q)}
               disabled={ask.isPending}
-              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:border-primary/60 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border bg-card px-3 py-1 text-xs hover:border-primary/60 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:whitespace-normal"
             >
-              <Sparkles className="h-3 w-3 text-primary" /> {q}
+              <Sparkles className="h-3 w-3 shrink-0 text-primary" /> {q}
             </button>
           ))}
         </div>
@@ -124,8 +124,8 @@ export function AskPage() {
             onChange={(e) => setQuestion(e.target.value)}
             disabled={ask.isPending}
           />
-          <Button type="submit" disabled={!question.trim() || ask.isPending}>
-            <Send /> Ask
+          <Button type="submit" disabled={!question.trim() || ask.isPending} aria-label="Ask">
+            <Send /> <span className="hidden sm:inline">Ask</span>
           </Button>
         </form>
       </div>
