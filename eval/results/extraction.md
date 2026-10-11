@@ -6,26 +6,26 @@ Scoring: must_contain tokens (strict); LLM judge on for fields without tokens. F
 
 | field | gold | output | score | citations |
 |---|---|---|---|---|
-| Bid Number | JA-207652; 168884 | RFP 168884; JA-207652; SOURCING #168884; Reference Number 00004079100 | exact | 4 |
+| Bid Number | JA-207652; 168884 | JA-207652; SOURCING #168884; 00004079100 | exact | 1 |
 | Title | Student and Staff Computing Devices | Student and Staff Computing Devices | exact | 1 |
-| Due Date | July 9, 2024 2:00 PM Central (changed by Addendum 2; originally June 27, 2024 2:00 PM) | July 9, 2024 at 2:00 PM CST. | exact | 1 |
-| Bid Submission Type | Electronic via the Dallas ISD iSupplier portal (preferred) or one sealed hard copy to P... | Electronic submission via the iSupplier portal is preferred; manual submission is also ... | exact | 3 |
-| Term of Bid | Three years with two successive one-year renewal options, maximum five years | Three (3) year agreement with two (2) successive one (1) year extensions, not to exceed... | exact | 1 |
-| Pre Bid Meeting | June 10, 2024 2:00 PM CST via Microsoft Teams video conference; not mandatory but highl... | June 10, 2024 at 2:00 PM CST via TEAMS video conference. Attendance is highly encourage... | exact | 2 |
-| Installation | Yes: white-glove deployment services (asset tags, etching on laptops, asset reporting, ... | Deployment services are required: white glove services include asset decaling, asset re... | exact | 4 |
+| Due Date | July 9, 2024 2:00 PM Central (changed by Addendum 2; originally June 27, 2024 2:00 PM) | July 9, 2024 at 2:00 PM CST | exact | 1 |
+| Bid Submission Type | Electronic via the Dallas ISD iSupplier portal (preferred) or one sealed hard copy to P... | Electronic submission via the iSupplier portal is preferred; manual submission is allow... | exact | 2 |
+| Term of Bid | Three years with two successive one-year renewal options, maximum five years | Three (3) year agreement with two (2) successive one (1) year extensions, based on the ... | exact | 1 |
+| Pre Bid Meeting | June 10, 2024 2:00 PM CST via Microsoft Teams video conference; not mandatory but highl... | June 10, 2024 at 2:00 PM CST via TEAMS video conference; attendance is highly encourage... | exact | 1 |
+| Installation | Yes: white-glove deployment services (asset tags, etching on laptops, asset reporting, ... | Deployment services are required and include white glove services: asset decaling, asse... | exact | 4 |
 | Bid Bond Requirement |  |  | exact | 0 |
-| Delivery Date | No fixed date; quotes per project starting September 2024; delivery schedule set with E... | No fixed delivery date or delivery window is stated. Dallas ISD anticipated requesting ... | partial | 2 |
-| Payment Terms |  | Prime vendors must pay all submitted invoices, including retainage to subcontractors, s... | wrong | 1 |
-| Any Additional Documentation Required | MWBE forms, W-9, Form 1295, signed Addenda 1-2, three references, factory-authorized re... | MWBE Forms, completed and attached regardless of MWBE status.; W9 Form, completed, sign... | partial | 9 |
-| MFG for Registration | No manufacturer named; resellers must hold factory-authorized certifications; OEM warra... | For proposing vendors who are resellers, submit copies of all factory-authorized repair... | exact | 1 |
+| Delivery Date | No fixed date; quotes per project starting September 2024; delivery schedule set with E... | from awarded vendors starting in September of 2024 | partial | 1 |
+| Payment Terms |  |  | exact | 0 |
+| Any Additional Documentation Required | MWBE forms, W-9, Form 1295, signed Addenda 1-2, three references, factory-authorized re... | Completed M/WBE Forms, attached regardless of M/WBE status; Completed and signed W-9, a... | partial | 7 |
+| MFG for Registration | No manufacturer named; resellers must hold factory-authorized certifications; OEM warra... |  | wrong | 0 |
 | Contract or Cooperative to use | EPCNT and CTPA rider options | Educational Purchasing Cooperative of North Texas (EPCNT); Central Texas Purchasing All... | exact | 2 |
 | Model_no |  |  | exact | 0 |
 | Part_no |  |  | exact | 0 |
-| Product | 10 device lines, e.g. 50,000 Tier 1 and 50,000 Tier 2 Chromebooks, 5,000 Tier 3 Windows... | Tier 1 Small Student Chromebook Laptop (Touch) — 50,000 Each; Tier 2 Large Student Chro... | exact | 2 |
-| contact_info | Jasmine Alzate, JALZATE@dallasisd.org, (972) 925-4100; Portal: ProcurementCS@dallasisd.... | Buyer: ALZATE, JASMINE; JALZATE@dallasisd.org; phone not stated.; Procurement Services;... | exact | 4 |
+| Product | 10 device lines, e.g. 50,000 Tier 1 and 50,000 Tier 2 Chromebooks, 5,000 Tier 3 Windows... | Tier 1 Small Student Chromebook Laptop (Touch) — 50,000 Each; Tier 2 Large Student Chro... | exact | 3 |
+| contact_info | Jasmine Alzate, JALZATE@dallasisd.org, (972) 925-4100; Portal: ProcurementCS@dallasisd.... | Buyer ALZATE, JASMINE — JALZATE@dallasisd.org; direct phone not stated; Sherri Williams... | exact | 4 |
 | company_name | Dallas Independent School District | Dallas Independent School District | exact | 1 |
-| Bid Summary |  | Dallas Independent School District is procuring student and staff laptops, tablets, des... | partial (not counted) | 48 |
-| Product Specification | Per tier, e.g. Tier 3 student Windows laptop: Intel i5 13th gen, 16 GB DDR5 RAM, 256 GB... | Student Chromebook Tier 1: Intel Celeron Processor N100 or equivalent; minimum 8GB DDR5... | exact | 10 |
+| Bid Summary |  | Dallas Independent School District is procuring Student and Staff Computing Devices und... | partial (not counted) | 18 |
+| Product Specification | Per tier, e.g. Tier 3 student Windows laptop: Intel i5 13th gen, 16 GB DDR5 RAM, 256 GB... | Tier 1 Staff Windows Basic Desktop: Intel i5, 14th Gen or equivalent; minimum 16GB RAM;... | exact | 8 |
 
 ## Bid2
 
@@ -56,7 +56,7 @@ Scoring: must_contain tokens (strict); LLM judge on for fields without tokens. F
 
 | bid | fields | exact | partial | wrong | accuracy | with citations | values w/o citation |
 |---|---|---|---|---|---|---|---|
-| Bid1 | 19 | 16 | 2 | 1 | 0.895 | 17 | 0 |
+| Bid1 | 19 | 16 | 2 | 1 | 0.895 | 15 | 0 |
 | Bid2 | 19 | 16 | 2 | 1 | 0.895 | 18 | 0 |
 
 accuracy = (exact + 0.5 * partial) / scored fields

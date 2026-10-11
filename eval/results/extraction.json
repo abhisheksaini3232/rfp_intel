@@ -7,9 +7,9 @@
         {
           "field": "Bid Number",
           "gold": "JA-207652; 168884",
-          "output": "RFP 168884; JA-207652; SOURCING #168884; Reference Number 00004079100",
+          "output": "JA-207652; SOURCING #168884; 00004079100",
           "score": "exact",
-          "citations": 4,
+          "citations": 1,
           "counted": true,
           "reason": "all tokens present"
         },
@@ -25,7 +25,7 @@
         {
           "field": "Due Date",
           "gold": "July 9, 2024 2:00 PM Central (changed by Addendum 2; originally June 27, 2024 2:00 PM)",
-          "output": "July 9, 2024 at 2:00 PM CST.",
+          "output": "July 9, 2024 at 2:00 PM CST",
           "score": "exact",
           "citations": 1,
           "counted": true,
@@ -34,16 +34,16 @@
         {
           "field": "Bid Submission Type",
           "gold": "Electronic via the Dallas ISD iSupplier portal (preferred) or one sealed hard copy to Procurement Services; no fax or email submissions",
-          "output": "Electronic submission via the iSupplier portal is preferred; manual submission is also allowed as one (1) original hard copy in a sealed envelope. Fax and email submissions are not accepted.",
+          "output": "Electronic submission via the iSupplier portal is preferred; manual submission is allowed in one format as one original hard copy in a sealed envelope. No fax or email submissions are accepted.",
           "score": "exact",
-          "citations": 3,
+          "citations": 2,
           "counted": true,
           "reason": "all tokens present"
         },
         {
           "field": "Term of Bid",
           "gold": "Three years with two successive one-year renewal options, maximum five years",
-          "output": "Three (3) year agreement with two (2) successive one (1) year extensions, not to exceed five (5) years total; extensions are based on the District\u2019s long-range needs and mutual consent.",
+          "output": "Three (3) year agreement with two (2) successive one (1) year extensions, based on the long-range needs of the District and mutual consent of both parties; not to exceed five (5) years total.",
           "score": "exact",
           "citations": 1,
           "counted": true,
@@ -52,16 +52,16 @@
         {
           "field": "Pre Bid Meeting",
           "gold": "June 10, 2024 2:00 PM CST via Microsoft Teams video conference; not mandatory but highly encouraged",
-          "output": "June 10, 2024 at 2:00 PM CST via TEAMS video conference. Attendance is highly encouraged, not stated as mandatory.",
+          "output": "June 10, 2024 at 2:00 PM CST via TEAMS video conference; attendance is highly encouraged, but is not stated to be mandatory.",
           "score": "exact",
-          "citations": 2,
+          "citations": 1,
           "counted": true,
           "reason": "all tokens present"
         },
         {
           "field": "Installation",
           "gold": "Yes: white-glove deployment services (asset tags, etching on laptops, asset reporting, delivery) and Autopilot / Google enrollment",
-          "output": "Deployment services are required: white glove services include asset decaling, asset reporting, etching, and delivery to varied locations. The scope also identifies software installation, device deployment and setup, and asset control reporting. Etching is required on laptops only.; Deployment services include asset decaling, asset reporting, laptop-only etching, and delivery to varied locations, as well as software installation, device deployment and setup, and asset control reporting. Windows devices require Autopilot; Chromebooks require enrollment in Google Management.",
+          "output": "Deployment services are required and include white glove services: asset decaling, asset reporting, etching, and delivery to varied locations. The specified deployment services also include software installation, asset tagging and etching, device deployment and setup, and asset control reporting. For Windows devices, autopilot is required; for Chromebooks, enrollment in Google Management is required. Etching is required only on laptops.",
           "score": "exact",
           "citations": 4,
           "counted": true,
@@ -79,38 +79,38 @@
         {
           "field": "Delivery Date",
           "gold": "No fixed date; quotes per project starting September 2024; delivery schedule set with Educational Technology",
-          "output": "No fixed delivery date or delivery window is stated. Dallas ISD anticipated requesting quotes for different projects from awarded vendors starting in September of 2024.",
+          "output": "from awarded vendors starting in September of 2024",
           "score": "partial",
-          "citations": 2,
+          "citations": 1,
           "counted": true,
-          "reason": "judge: The extracted value captures that there is no fixed delivery date and that quotes begin in September 2024, but it omits the key point that the delivery schedule is set with Educational Technology."
+          "reason": "judge: The extracted value captures that work starts in September 2024, but it omits the key gold details that there is no fixed delivery date, quotes are per project, and the schedule is set with Educational Technology."
         },
         {
           "field": "Payment Terms",
           "gold": "",
-          "output": "Prime vendors must pay all submitted invoices, including retainage to subcontractors, suppliers, or entities within 10 days of receiving payment from the district.",
-          "score": "wrong",
-          "citations": 1,
+          "output": "",
+          "score": "exact",
+          "citations": 0,
           "counted": true,
           "reason": "gold states nothing is required / not found"
         },
         {
           "field": "Any Additional Documentation Required",
           "gold": "MWBE forms, W-9, Form 1295, signed Addenda 1-2, three references, factory-authorized repair certifications (resellers), catalog/price list, insurance certificate within 10 days of award",
-          "output": "MWBE Forms, completed and attached regardless of MWBE status.; W9 Form, completed, signed, and attached to the submission.; Full name and date for the proposal to be considered.; Insurance form and certificate of insurance/bond; the insurance form must be received within ten (10) days of award.; Form 1295 - Certificate of Interested Parties, completed, signed, and attached with the bid response, unless the company is publicly traded.; A signed copy of Addendum 2 submitted with the proposal.; Subcontractor forms: provide one form for each subcontractor employed; attach additional forms as needed.; Letter of Intent (LOI) for each proposed M/WBE subcontractor, submitted at the contract negotiation meeting or as requested by the M/WBE Department; not required with the initial bid/proposal.; A signed copy of Addendum 1 must be submitted with the proposal.",
+          "output": "Completed M/WBE Forms, attached regardless of M/WBE status; Completed and signed W-9, attached to the submission; Form 1295, completed and signed, attached with the RFP response (not required for publicly traded companies); Three business references, including company name, address, phone number, contact person, and email address; Insurance form; the insurance form must be received within ten (10) days of award; Certificate of insurance/bond meeting or exceeding the solicitation or contract requirements; A subcontractor form for each subcontractor employed, with additional forms attached; Full name and date on the proposal; signed declaration of compliance; Bidders are required to acknowledge and return/submit a copy of Addendum 1 and Addendum 2 with their proposal.",
           "score": "partial",
-          "citations": 9,
+          "citations": 7,
           "counted": true,
-          "reason": "missing tokens: ['references']"
+          "reason": "missing tokens: ['W9']"
         },
         {
           "field": "MFG for Registration",
           "gold": "No manufacturer named; resellers must hold factory-authorized certifications; OEM warranties required",
-          "output": "For proposing vendors who are resellers, submit copies of all factory-authorized repair and maintenance certifications; no specific manufacturer is named.",
-          "score": "exact",
-          "citations": 1,
+          "output": "",
+          "score": "wrong",
+          "citations": 0,
           "counted": true,
-          "reason": "all tokens present"
+          "reason": "no value extracted"
         },
         {
           "field": "Contract or Cooperative to use",
@@ -144,14 +144,14 @@
           "gold": "10 device lines, e.g. 50,000 Tier 1 and 50,000 Tier 2 Chromebooks, 5,000 Tier 3 Windows laptops, 50,000 tablets, 10,000 of each staff laptop tier, 5,000 of each desktop tier and monitor type",
           "output": "Tier 1 Small Student Chromebook Laptop (Touch) \u2014 50,000 Each; Tier 2 Large Student Chromebook Laptop (Non- Touch) \u2014 50,000 Each; Tier 3 Student Windows Laptop \u2014 5,000 Each; Student Tablet \u2014 50,000 Each; Tier 1 Staff Laptop \u2014 10,000 Each; Tier 2 Staff Laptop \u2014 10,000 Each; Tier 1 Staff Basic Desktop \u2014 5,000 Each; Tier 2 Staff Professional Desktop \u2014 5,000 Each; Display Monitor - Touch \u2014 5,000 Each; Display Monitor - Non-Touch \u2014 5,000 Each",
           "score": "exact",
-          "citations": 2,
+          "citations": 3,
           "counted": true,
           "reason": "all tokens present"
         },
         {
           "field": "contact_info",
           "gold": "Jasmine Alzate, JALZATE@dallasisd.org, (972) 925-4100; Portal: ProcurementCS@dallasisd.org, 972-925-3700",
-          "output": "Buyer: ALZATE, JASMINE; JALZATE@dallasisd.org; phone not stated.; Procurement Services; 972-925-3700; ProcurementCS@dallasisd.org.; Sherri Williams, procurement questions; shewilliams? no \u2014 shewilli@dallasisd.org; phone not stated.; Oracle Finance Development Team, technical questions; DGOracleFDTeam@dallasisd.org; phone not stated.",
+          "output": "Buyer ALZATE, JASMINE \u2014 JALZATE@dallasisd.org; direct phone not stated; Sherri Williams \u2014 shewilli@dallasisd.org; phone not stated; Procurement Services \u2014 972-925-3700; ProcurementCS@dallasisd.org; Purchasing Department \u2014 (972)925-4100",
           "score": "exact",
           "citations": 4,
           "counted": true,
@@ -169,18 +169,18 @@
         {
           "field": "Bid Summary",
           "gold": "",
-          "output": "Dallas Independent School District is procuring student and staff laptops, tablets, desktops, and monitors under RFP 168884 / JA-207652, with a three-year agreement that may be extended for up to two additional years. Addendum 2 moved the proposal deadline to July 9, 2024, at 2:00 PM CST; a TEAMS pre-bid meeting was scheduled for June 10, 2024, at 2:00 PM CST, with attendance highly encouraged but not stated as mandatory. As clarified by Addendum 1, electronic submission through the iSupplier portal is preferred, or vendors may submit one original hard copy in a sealed envelope; fax and email are not accepted. Required documentation includes signed copies of both addenda, MWBE forms regardless of MWBE status, a signed W9, and Form 1295 unless the company is publicly traded; reseller bidders must also provide factory-authorized repair and maintenance certifications, while the insurance form is due within ten days of award. Deployment includes asset tracking, laptop-only etching, software installation and device setup; Addendum 1 specifies Windows Autopilot, Chromebook enrollment in Google Management, and minimum 65 W Chromebook chargers, while device warranty minimums range from one to three years. No fixed delivery date or window is stated: the district anticipated requesting project quotes from awarded vendors starting in September 2024, with delivery deadlines agreed for each project.",
+          "output": "Dallas Independent School District is procuring Student and Staff Computing Devices under Bid JA-207652, SOURCING #168884, 00004079100, including Chromebook laptops, Windows laptops, tablets, staff laptops, staff desktops, and touch and non-touch monitors. The bid is due July 9, 2024 at 2:00 PM CST, after Addendum 2 changed the original due date of June 27, 2024 at 2:00 PM CST. A pre-bid meeting was held on June 10, 2024 at 2:00 PM CST via TEAMS video conference, and attendance was highly encouraged but not stated to be mandatory. Submission is preferred electronically through the iSupplier portal, but manual submission is allowed as one original hard copy in a sealed envelope; fax and email submissions are not accepted. Deployment services are required, including white glove services, asset decaling, asset reporting, etching, delivery to varied locations, software installation, asset tagging and etching, device deployment and setup, and asset control reporting; Windows devices require autopilot, Chromebooks require enrollment in Google Management, and etching is required only on laptops. Delivery from awarded vendors is to begin in September 2024, the term is a three-year agreement with two successive one-year extensions not to exceed five years total, and the bid references EPCNT and CTPA as cooperative/interlocal purchasing opportunities. Documentation, manufacturer authorization, and warranty requirements are not stated in the provided documents.",
           "score": "partial",
-          "citations": 48,
+          "citations": 18,
           "counted": false,
-          "reason": "judge: The extracted value matches most of the gold summary, including the bid number/title, deadline change, submission method, term, pre-bid meeting, documentation, deployment, and delivery timing, but it omits or alters some gold details such as the exact company name context and several specific product/specification and contact/cooperative details."
+          "reason": "judge: The extracted value matches many key bid-summary facts (bid number, title, due date, submission method, meeting, installation, term, delivery timing, and cooperative options), but it omits several required gold details such as the contact info, company name, product specifications, and additional documentation requirements."
         },
         {
           "field": "Product Specification",
           "gold": "Per tier, e.g. Tier 3 student Windows laptop: Intel i5 13th gen, 16 GB DDR5 RAM, 256 GB NVMe SSD, Wi-Fi 6E, Windows 11 Pro, 3-year warranty",
-          "output": "Student Chromebook Tier 1: Intel Celeron Processor N100 or equivalent; minimum 8GB DDR5 memory; 64 GB eMMC; minimum 11.6\" display with 1366 x 768 multi-touch; 802.11AX WiFi-6E and Bluetooth 5.1; Chrome O/S license required; 1-year minimum warranty. Tier 2: Intel Celeron Processor N100 or equivalent; minimum 8GB DDR5 memory; 128 GB eMMC; minimum 14\" non-touch display with 1920-1080 resolution; 802.11AX WiFi-6E and Bluetooth 5.1; Chrome O/S license required; 1-year minimum warranty. Tier 3 Student Windows Laptop: Intel i5 13th Gen or equivalent; minimum 16GB RAM DDR5; 256 GB NVMe SSD; minimum 13\" non-touch display with 1920-1080 resolution; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 Pro; 3-year minimum warranty. Student Tablet: Processor A13; 64 GB storage; 10.2\" Retina display; 802.11AC and Bluetooth 4.2; iOS 17; 1-year minimum warranty. Staff Windows Basic Desktop Tier 1: Intel i5 Processor, 14th Gen or equivalent; minimum 16GB RAM; 512 GB NVMe SSD; minimum 23.8\" diagonal touch screen; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 Pro; 3-year minimum warranty. Staff Professional Desktop Tier 2: Intel i7 Processor, 14th Gen or equivalent; minimum 32GB DDR5 RAM; 1 TB NVMe SSD; minimum 23.8\" diagonal touch screen (touchscreen optional); 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 Pro or Mac O/S; 4 GB video card; 3-year minimum warranty. Staff Basic Laptop Tier 1: Intel i5 CPU, 14th Gen or equivalent; minimum 16GB DDR5 RAM; 512 GB NVMe SSD; minimum 13\" diagonal screen; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 or Mac OS; 3-year minimum warranty. Staff Laptop Tier 2: Intel i7 CPU, 14th Gen or equivalent; minimum 32GB DDR5 RAM; 1 TB NVMe SSD; minimum 13\" diagonal screen with 1920 X 1080 minimum resolution; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 or Mac OS; 3-year minimum warranty. Monitors: Touch and non-touch options, both minimum 24\" diagonal, 1920 X 1080, USB 3.1 Hub port, and 3-year minimum warranty; touch monitor also specifies 16:9 aspect ratio and 3000:1 contrast.; Student Chromebook laptop chargers: minimum 65 W.",
+          "output": "Tier 1 Staff Windows Basic Desktop: Intel i5, 14th Gen or equivalent; minimum 16GB RAM; 512 GB NVMe SSD; minimum 23.8\" diagonal touch screen; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 Pro; 3-year minimum warranty.; Tier 2 Staff Professional Desktop: Intel i7, 14th Gen or equivalent; minimum 32GB DDR5 RAM; 1 TB NVMe SSD; minimum 23.8\" diagonal screen (touchscreen optional); 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 Pro or Mac O/S; 3-year minimum warranty.; Tier 1 Staff Basic Laptop: Intel i5 CPU, 14th Gen or equivalent; minimum 16GB DDR5 RAM; 512 GB NVMe SSD; minimum 13\" diagonal screen; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 or Mac OS; 3-year minimum warranty.; Tier 2 Staff Laptop: Intel i7 CPU, 14th Gen or equivalent; minimum 32GB DDR5 RAM; 1 TB NVMe SSD; minimum 13\" diagonal screen; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 or Mac OS; 3-year minimum warranty.; Tier 2 Large Student Chromebook Laptop: Intel Celeron Processor N100 or equivalent; minimum 8GB DDR5 Memory; 128 GB eMMC; minimum 14\" diagonal non-touch display; 802.11AX WiFi-6E and Bluetooth 5.1; Chrome O/S License Required; 1-year minimum warranty.; Tier 3 Student Windows Laptop: Intel i5 13th Gen or equivalent; minimum 16GB RAM DDR5 Memory; 256 GB NVMe SSD; minimum 13\" diagonal display; 802.11AX WiFi-6E and Bluetooth 5.1; Windows 11 Pro; 3-year minimum warranty.; Student Tablet: Processor A13; 64 GB storage; 10.2\" Retina display; 802.11AC and Bluetooth 4.2; iOS 17; 1-year minimum warranty.",
           "score": "exact",
-          "citations": 10,
+          "citations": 8,
           "counted": true,
           "reason": "all tokens present"
         }
@@ -190,7 +190,7 @@
       "wrong": 1,
       "scored_fields": 19,
       "accuracy": 0.895,
-      "fields_with_citations": 17,
+      "fields_with_citations": 15,
       "values_without_citation": 0
     },
     {
@@ -365,7 +365,7 @@
           "score": "partial",
           "citations": 26,
           "counted": false,
-          "reason": "judge: The extracted value matches many core bid-summary facts from the gold (title, bid numbers, due date, electronic submission, 90-day validity, no pre-bid meeting, delivery timing/location, and several documentation requirements), but it omits or alters some gold details such as the exact product specification, payment terms wording, and some listed items like ENERGY STAR products and the full contract/cooperative context."
+          "reason": "judge: The extracted value matches many key bid-summary facts from the gold (title, bid numbers, due date, submission method, 90-day validity, no pre-bid meeting, delivery timing/location, and several documentation requirements), but it omits or alters some gold details such as the exact product/specification set, payment terms wording, and other listed field specifics."
         },
         {
           "field": "Product Specification",
