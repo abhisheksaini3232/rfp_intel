@@ -92,12 +92,13 @@ results table. Outputs: `outputs/Bid1.json` (the deliverable record),
 | Ask | `python main.py ask "What changed in Addendum 2?" --bid Bid1` or `python main.py --bid ./data/Bid1 --ask "..."` |
 | Compare bids | `python main.py compare Bid1 Bid2` -> `outputs/comparison.md` + `.json` (needs both records; two or more bids) |
 | Go / no-go | `python main.py go-no-go --bid Bid1` -> `outputs/Bid1_go_no_go.md` + `.json` (judged against `config/capabilities.yaml`) |
+| Remove a bid | `python main.py remove Bid3` (also `DELETE /bids/{id}` and the "Remove bid" button): drops its chunks from both stores, deletes `outputs/Bid3*` and `data/Bid3/` |
 | Evaluate | `python main.py eval retrieval [--min-recall5 0.9]` -> `eval/results/retrieval.md`; `python main.py eval extraction` -> `eval/results/extraction.md` |
 | End-to-end smoke test | `python -m eval.smoke_e2e` (API running on :8001) -> `eval/results/smoke_e2e.md`; see [docs/TESTING.md](docs/TESTING.md) |
 | API | `uvicorn rfp_intel.api.server:app --reload` -> http://localhost:8000/docs |
 | Web app | `cd frontend && npm install && npm run dev` -> http://localhost:5173 (expects the API on :8000) |
 | Frontend checks | `cd frontend && npm run lint && npm test && npm run build` |
-| Tests | `pytest -q` (257 tests, no network or models needed) |
+| Tests | `pytest -q` (302 tests, no network or models needed) |
 | CI | `.github/workflows/ci.yml`: pytest, frontend checks, retrieval eval with a recall@5 floor, on every push |
 | Docker stack | `docker compose up --build` -> web app on :5173, API on :8001, Qdrant server on :6333 |
 | Answer cache | `python main.py cache stats` / `python main.py cache clear` (semantic cache, `cache.enabled`) |
@@ -260,8 +261,8 @@ keeps every LLM call visible in the trace.
 | Retrieval (`retrieve`) | none | **the only caller of the search engine**; evidence per field (+ addendum-only evidence), widened on retry |
 | Extractors (`extract_<group>`) | EXTRACT | one structured call per group over numbered evidence; evidence ids -> citations with verified quotes |
 | Addendum Reconciler (`reconcile`) | REASON | override / clarification / addition per field; latest addendum wins; old value kept in notes |
-| Validator / Critic (`validate`) | REASON | rules (citation, quote-in-chunk, format, consistency incl. time zones) + support check; retries failed fields (max 2) |
-| Report (`report`) | REASON | Bid Summary from validated fields only; writes the record |
+| Validator / Critic (`validate`) | REASON | rules (citation, quote-in-chunk, format, consistency incl. time zones) + support check per field group; a list value whose items are only partly supported is corrected (unsupported items dropped and named in the notes), anything else that fails is retried (max 2) and then marked `failed`; every verdict and reason is in the trace |
+| Report (`report`) | REASON | Bid Summary from validated fields only; applies the output formats of `config/fields.yaml` (`normalize: datetime` rewrites Due Date as `YYYY-MM-DD HH:MM TZ`, the documents' wording stays in the notes); writes the record |
 | Q&A (`answer`, `validate_answer`) | REASON | cited answers or "Not found in documents"; comparison and change questions; one widened retry |
 | Comparison (`compare`, bonus) | REASON | rows per field from the saved records (`differs` computed in code), narrative + highlights written from the validated values only, citations inherited from the cells |
 | Go/No-Go (`go_no_go`, bonus) | REASON | one met / not_met / unknown verdict per criterion of `config/capabilities.yaml` from the fields it names; criteria with no stated value are decided by rule; the recommendation (go / no_go / review) is code |
@@ -309,7 +310,7 @@ table; "Can bids be emailed?"). Per-question ranks:
 | system | Bid1 exact / partial / wrong | Bid1 accuracy | Bid2 exact / partial / wrong | Bid2 accuracy |
 |---|---|---|---|---|
 | baseline (single pass) | 15 / 2 / 2 | 0.842 | 16 / 2 / 1 | 0.895 |
-| multi-agent graph | 15 / 3 / 1 | **0.868** | 16 / 2 / 1 | **0.895** |
+| multi-agent graph | 19 / 0 / 0 | **1.000** | 19 / 0 / 0 | **1.000** |
 
 accuracy = (exact + 0.5 x partial) / 19, strict `must_contain` tokens plus an
 LLM judge for free-text fields. The two systems share the extraction code,
@@ -317,13 +318,23 @@ so the per-bid differences are run-to-run variance of the models (they only
 run at their default temperature); what the graph adds is structural: an
 addendum change log (Bid1 Due Date: June 27 -> July 9, 2024, override),
 validation with quote-verified citations (every non-null value cited;
-fields that fail the support check keep their value but are marked), and a trace with explicit retries. Full tables:
+a list value loses only the items the critic cannot support, and the record
+names them; anything else that fails the support check keeps its value but
+is marked), and a trace with explicit retries. Full tables:
 [eval/results/extraction.md](eval/results/extraction.md) (graph) and
 [eval/results/baseline/extraction.md](eval/results/baseline/extraction.md).
 
-Validation counts of the delivered records: Bid1 13 passed / 2 failed /
-5 not_found (the two failed fields are long lists that keep their values
-and citations but did not pass the strict support check); Bid2 17 / 1 / 2. A run costs about $0.03-0.07 in LLM calls
+Validation counts of the delivered records: Bid1 15 passed / 1 failed /
+4 not_found; Bid2 14 / 3 / 3. A failed field keeps its value and citations
+with low confidence: in every case the critic rejected a long list (a
+multi-tier specification, the Dell SKU list, the Maryland document list)
+whose items are quoted verbatim from the evidence, so the values stand and
+the record marks them for review. The accuracy came from retrieval and
+field-definition work, not from the eval (docs/ASSUMPTIONS.md 99 and 105):
+per-field evidence depth, hint queries that reach single passages, a
+re-rank that scores each candidate against every query, descriptions that
+say what a value is *not*, and a validator that only drops a list item the
+evidence does not contain. A run costs about $0.05-0.10 in LLM calls
 (gpt-6-luna for the extractors, gpt-5.4-mini for reconciliation, validation,
 Q&A and the summary; see docs/ASSUMPTIONS.md 86 for the model choice) and
 2-6 minutes on CPU, most of it retrieval.
@@ -338,7 +349,7 @@ recorded the fixture's addendum due-date override (`outputs/MiniBid.json`).
 ### Sample Q&A and trace
 
 - Q&A log (12 cited answers, including the brief's five): [eval/qa_log.md](eval/qa_log.md)
-- Example agent trace (Bid1, 25 steps incl. parallel extractors and two validator retries): [logs/example_trace.jsonl](logs/example_trace.jsonl)
+- Example agent trace (Bid1, 23 steps incl. parallel extractors, three validator retry rounds and every support verdict): [logs/example_trace.jsonl](logs/example_trace.jsonl)
 - Requirements checklist: [docs/CHECKLIST.md](docs/CHECKLIST.md)
 - Demo video script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 - Backend walkthrough with diagrams: [docs/BACKEND.md](docs/BACKEND.md)
@@ -400,10 +411,15 @@ Mapped to the assignment brief:
   the documents again: a value the extractor missed stays "Not found" in the
   comparison and makes its criterion `unknown`. The go/no-go verdicts depend
   on the capability profile you write; the shipped one is a sample.
-- The validator's support check is strict on long list-valued fields
-  (documentation lists, multi-tier specifications): such a field can end up
-  `failed` while still carrying its value and citations, so the counts in
-  the record are a lower bound on what was extracted.
+- The validator's support check judges whole values. For list values it
+  can now drop the individual items it cannot support (the record names
+  them), but a long single-string value (a multi-tier specification) that
+  mixes one unsupported detail into many supported ones still fails as a
+  whole after the retries; such a field keeps its value and citations with
+  status `failed` and confidence 0.2.
+- Due Date is the only field with a normalized output format; the other
+  date-like fields (Pre Bid Meeting, Delivery Date) are kept as written
+  because they are often a window or a process rather than one instant.
 - CI runs the retrieval evaluation only; the extraction evaluation needs an
   LLM key and is run locally (`python main.py eval extraction`).
 

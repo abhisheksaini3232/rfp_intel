@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shutil
 import statistics
 import threading
 import time
@@ -27,6 +28,7 @@ from rfp_intel.logging_utils import new_run_id, read_trace, summarize_run
 from rfp_intel.schemas import (
     Answer,
     BidDetail,
+    RemoveResult,
     BidRecord,
     BidSummary,
     Chunk,
@@ -597,6 +599,43 @@ def eval_results(kind: Literal["retrieval", "extraction"]) -> dict | None:
     if not path.is_file():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def remove_bid(bid_id: str) -> RemoveResult:
+    """Delete a bid everywhere: index, saved outputs (record, summaries, parsed files) and its data folder.
+
+    ValueError for a bad id, FileNotFoundError when the bid is neither on disk
+    nor indexed, RuntimeError while an extraction of it is running.
+    """
+    if not BID_ID_PATTERN.match(bid_id or ""):
+        raise ValueError("bid_id must match ^[A-Za-z0-9_-]{1,64}$")
+    running = active_run()
+    if running is not None and running.bid_id == bid_id:
+        raise RuntimeError(f"extraction {running.run_id} of {bid_id} is still running")
+    folder = bid_folder(bid_id)
+    indexed = get_engine().remove_bid(bid_id)
+    if not folder.is_dir() and not indexed and not record_path(bid_id).exists():
+        raise FileNotFoundError(f"unknown bid: {bid_id}")
+    removed_files = _remove_outputs(bid_id)
+    if folder.is_dir():
+        shutil.rmtree(folder)
+    logger.info("removed bid %s (indexed=%s, outputs=%d, folder=%s)", bid_id, indexed, removed_files, folder)
+    return RemoveResult(bid_id=bid_id, indexed=indexed, outputs_removed=removed_files, folder_removed=True)
+
+
+def _remove_outputs(bid_id: str) -> int:
+    """Delete outputs/<bid>*.json|md and outputs/parsed/<bid>/; returns the file count."""
+    out_dir = settings.path("outputs_dir")
+    count = 0
+    for path in list(out_dir.glob(f"{bid_id}.json")) + list(out_dir.glob(f"{bid_id}_*.json")) \
+            + list(out_dir.glob(f"{bid_id}_*.md")):
+        path.unlink()
+        count += 1
+    parsed = out_dir / "parsed" / bid_id
+    if parsed.is_dir():
+        count += sum(1 for p in parsed.iterdir() if p.is_file())
+        shutil.rmtree(parsed)
+    return count
 
 
 def save_upload(bid_id: str, files: list[tuple[str, bytes]]) -> Path:

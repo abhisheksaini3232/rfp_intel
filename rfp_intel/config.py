@@ -217,6 +217,7 @@ class FieldSpec(BaseModel):
     search_hints: list[str] = []
     doc_types: list[DocType] | None = None
     top_k: int | None = None             # evidence passages for this field (default agents.evidence_top_k)
+    normalize: Literal["datetime"] | None = None   # deterministic output format applied by the Report agent
 
     @field_validator("search_hints", mode="before")
     @classmethod

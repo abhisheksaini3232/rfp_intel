@@ -190,6 +190,14 @@ export interface BidSummary {
   validation: ValidationCounts | null;
 }
 
+/** DELETE /bids/{bid_id}: what was removed. */
+export interface RemoveResult {
+  bid_id: string;
+  indexed: boolean;
+  outputs_removed: number;
+  folder_removed: boolean;
+}
+
 export interface DocumentSummary {
   file_name: string;
   doc_type: DocType;

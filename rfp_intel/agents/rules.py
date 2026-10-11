@@ -33,6 +33,7 @@ _TZ_OFFSETS_H = {
     "central": -6, "mst": -7, "mdt": -6, "mt": -7, "mountain": -7, "pst": -8, "pdt": -7, "pt": -8,
     "pacific": -8, "hst": -10, "akst": -9, "akdt": -8,
 }
+_TZ_LABELS = {"eastern": "ET", "central": "CT", "mountain": "MT", "pacific": "PT"}
 _NOT_FOUND_PHRASES = {"none", "n/a", "not found", "not found in documents", "not stated", "not specified"}
 
 
@@ -112,6 +113,32 @@ def parse_datetime(text: str) -> datetime | None:
     Dates without a time are set to 00:00; without a zone they are treated as
     UTC, so comparisons between zoned and unzoned values stay conservative.
     """
+    parts = _datetime_parts(text)
+    if parts is None:
+        return None
+    local, _has_time, zone = parts
+    offset = _TZ_OFFSETS_H.get(zone.lower(), 0) if zone else 0
+    return (local - timedelta(hours=offset)).replace(tzinfo=timezone.utc)
+
+
+def format_datetime(text: str) -> str | None:
+    """The first date in free text as "YYYY-MM-DD HH:MM TZ" in its own local time.
+
+    The time and zone are only included when the text states them, so a date
+    without a time stays "YYYY-MM-DD". Returns None when no date is found.
+    """
+    parts = _datetime_parts(text)
+    if parts is None:
+        return None
+    local, has_time, zone = parts
+    if not has_time:
+        return local.strftime("%Y-%m-%d")
+    stamp = local.strftime("%Y-%m-%d %H:%M")
+    return f"{stamp} {_zone_label(zone)}" if zone else stamp
+
+
+def _datetime_parts(text: str) -> tuple[datetime, bool, str] | None:
+    """(naive local datetime, whether a time was stated, zone token or "") for the first date."""
     date_match = _DATE_TEXT.search(text)
     if not date_match:
         return None
@@ -121,14 +148,10 @@ def parse_datetime(text: str) -> datetime | None:
         return None
     after = text[date_match.end():date_match.end() + 60]
     before = text[max(0, date_match.start() - 60):date_match.start()]
-    hour, minute = _time_in(after) or _time_in(before) or (0, 0)
-    offset = _zone_offset(after)
-    if offset is None:
-        offset = _zone_offset(before)
-    if offset is None:
-        offset = _zone_offset(text)
-    local = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    return (local - timedelta(hours=offset or 0)).replace(tzinfo=timezone.utc)
+    time_found = _time_in(after) or _time_in(before)
+    hour, minute = time_found or (0, 0)
+    zone = _zone_token(after) or _zone_token(before) or _zone_token(text)
+    return day.replace(hour=hour, minute=minute, second=0, microsecond=0), time_found is not None, zone
 
 
 def _time_in(text: str) -> tuple[int, int] | None:
@@ -146,10 +169,15 @@ def _time_in(text: str) -> tuple[int, int] | None:
     return int(match.group(4)), int(match.group(5))     # 14:00
 
 
-def _zone_offset(text: str) -> float | None:
-    """UTC offset in hours for the first zone abbreviation in `text`."""
+def _zone_token(text: str) -> str:
+    """The first time-zone word in `text` as written, or ""."""
     match = _TZ.search(text)
-    return _TZ_OFFSETS_H.get(match.group(1).lower()) if match else None
+    return match.group(1) if match else ""
+
+
+def _zone_label(zone: str) -> str:
+    """Zone abbreviation for output: "Central" -> "CT", "cst" -> "CST"."""
+    return _TZ_LABELS.get(zone.lower(), zone.upper())
 
 
 def _date_of(value: FieldValue | None) -> datetime | None:

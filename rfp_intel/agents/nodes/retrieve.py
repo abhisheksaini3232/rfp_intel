@@ -37,16 +37,16 @@ ADDENDUM_TOP_K = 4
 MAX_CHANGE_QUERIES = 3          # changes (2 queries each) a change question may add
 MAX_QA_EVIDENCE = 20
 _ADDENDUM_WORD = re.compile(r"\baddend(?:um|a)\b|\bchange[sd]?\b|\brevis", re.IGNORECASE)
-MAX_QUERIES = 3                 # queries per field; one request = one fused search + one re-rank
+MAX_QUERIES = 6                 # queries per field; one request = one fused search + one re-rank
 MAX_PRIMARY_HINTS = 4           # hints joined to the field name in the first query
-MAX_SECONDARY_HINTS = 6         # remaining hints that form the third query
+HINTS_PER_QUERY = 3             # later hints form short queries of this many hints
 # Words that say nothing about the topic of a change question.
 _STOP_TOKENS = frozenset("""a an and are as at be been by did do does for from has have how in is it its of on or
     that the this to was were what when where which who will with after before all any final original current
     latest new old change changes changed revised revision revisions update updated addendum addenda addendums
     bid bids rfp proposal proposals solicitation document documents date dates time times type types number
     numbers no info information name names detail details required requirement requirements""".split())
-MAX_WIDENED_QUERIES = 5
+MAX_WIDENED_QUERIES = 8
 MAX_ADDENDUM_QUERIES = 1
 MAX_HINT_WORDS = 12
 
@@ -59,17 +59,22 @@ def evidence_key(field: str, addendum: bool = False) -> str:
 def field_queries(spec: FieldSpec, widened: bool = False) -> list[str]:
     """Search queries for a field: name + description, then its search hints.
 
-    Normal: the field name with the first hints, and a short description
-    query. Widened: every hint as its own query plus synonym expansions.
+    Normal: the field name with the first hints, a short description query,
+    then the remaining hints in groups of HINTS_PER_QUERY (a long joined hint
+    list dilutes BM25, so a passage matching one hint would never surface).
+    Widened: those plus every hint as its own query, then synonym expansions,
+    up to MAX_WIDENED_QUERIES.
     """
     hints = list(spec.search_hints)
     primary = f"{spec.name} {' '.join(hints[:MAX_PRIMARY_HINTS])}".strip()
     description = " ".join(spec.description.split()[:MAX_HINT_WORDS])
-    secondary = " ".join(hints[MAX_PRIMARY_HINTS:MAX_PRIMARY_HINTS + MAX_SECONDARY_HINTS])
-    queries = [primary, description, secondary]
+    groups = [" ".join(hints[i:i + HINTS_PER_QUERY])
+              for i in range(MAX_PRIMARY_HINTS, len(hints), HINTS_PER_QUERY)]
+    queries = [primary, description, *groups]
     if widened:
+        # the field's own queries and hints first, synonym variants only after them
         queries += hints
-        queries = [v for q in queries for v in expand_query(q)]
+        queries += [v for q in queries for v in expand_query(q)]
     limit = MAX_WIDENED_QUERIES if widened else MAX_QUERIES
     return _dedupe(q for q in queries if q.strip())[:limit]
 

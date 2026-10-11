@@ -19,6 +19,11 @@ Rules
    ids). Use a list value when a field asks for several items; otherwise a short string.
 7. Return exactly one item per requested field, using the field names exactly as
    given. Do not add fields.
+8. Respect the exclusions in a field description. When the only candidate evidence
+   is of a kind the description rules out (for example line numbers offered as part
+   numbers, or a clause about a different party), return status "not_found" with
+   value null: a value that your own note would describe as "not really what this
+   field asks for" must not be returned.
 
 Fields to extract (name: description)
 {fields_block}

@@ -47,13 +47,21 @@ class GoldField(BaseModel):
         return self
 
 
+_NOISE = re.compile(r"[\s\-‐-―/_]+")   # whitespace, hyphens, en/em dashes, slashes, underscores
+
+
 def normalize(text: str) -> str:
-    """Case- and whitespace-insensitive form used for all phrase matching."""
-    return re.sub(r"\s+", "", text).lower()
+    """Case-, whitespace- and hyphen-insensitive form used for all phrase matching.
+
+    "white-glove", "white glove" and "whiteglove" (likewise "W-9" / "W9",
+    "Contract_Affidavit.pdf" / "Contract Affidavit") are the same token; every
+    other character is kept so numbers and ids still have to match exactly.
+    """
+    return _NOISE.sub("", text).lower()
 
 
 def contains_phrase(text: str, phrase: str) -> bool:
-    """True if `phrase` occurs in `text`, ignoring case and whitespace."""
+    """True if `phrase` occurs in `text`, ignoring case, whitespace and hyphens."""
     return normalize(phrase) in normalize(text)
 
 

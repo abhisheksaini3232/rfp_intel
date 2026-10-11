@@ -188,6 +188,7 @@ class SupportCheck(BaseModel):           # LLM output of the Validator, per fiel
     field: str
     supported: bool
     reason: str = ""
+    unsupported_items: list[str] = []    # for list values: the items (verbatim) the evidence does not support
 
 
 class SupportChecks(BaseModel):
@@ -445,6 +446,15 @@ class DocumentInfo(BaseModel):
     pages: int
     tables: int = 0
     warnings: list[str] = []
+
+
+class RemoveResult(BaseModel):           # DELETE /bids/{bid_id}
+    """What removing a bid deleted."""
+
+    bid_id: str
+    indexed: bool                        # it had chunks in the index
+    outputs_removed: int                 # files deleted under outputs/
+    folder_removed: bool
 
 
 class BidDetail(BaseModel):              # GET /bids/{bid_id}

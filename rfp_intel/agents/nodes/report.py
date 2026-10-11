@@ -6,8 +6,9 @@ from pathlib import Path
 
 from rfp_intel import llm
 from rfp_intel.agents.baseline import not_found_value, value_text
+from rfp_intel.agents.rules import format_datetime
 from rfp_intel.agents.runtime import load_prompt
-from rfp_intel.config import field_names, settings
+from rfp_intel.config import field_names, load_fields, settings
 from rfp_intel.logging_utils import log_step, now_iso
 from rfp_intel.schemas import AddendumChange, BidRecord, Citation, FieldValue
 
@@ -32,10 +33,27 @@ def summarize(bid_id: str, values: dict[str, FieldValue]) -> FieldValue:
                       notes=f"Generated from {len(ok)} validated fields")
 
 
+def normalize_value(value: FieldValue, how: str | None) -> FieldValue:
+    """Apply a field's configured output format (fields.yaml `normalize`).
+
+    "datetime" rewrites a validated string value as "YYYY-MM-DD HH:MM TZ" and
+    keeps the documents' wording in the notes; anything that does not parse
+    is left as written.
+    """
+    if how != "datetime" or value.status != "ok" or not isinstance(value.value, str):
+        return value
+    formatted = format_datetime(value.value)
+    if formatted is None or formatted == value.value:
+        return value
+    note = f"As written: {value.value.strip().rstrip('.')}."
+    return value.model_copy(update={"value": formatted, "notes": f"{note} {value.notes}".strip()})
+
+
 def build_record(bid_id: str, run_id: str, drafts: dict[str, FieldValue],
                  changes: list[AddendumChange]) -> BidRecord:
-    """BidRecord with exactly the configured fields and validation counts."""
-    fields = {name: drafts.get(name, not_found_value()) for name in field_names()}
+    """BidRecord with exactly the configured fields (normalized) and validation counts."""
+    formats = {spec.name: spec.normalize for spec in load_fields()}
+    fields = {name: normalize_value(drafts.get(name, not_found_value()), formats.get(name)) for name in field_names()}
     counts = {"passed": 0, "failed": 0, "not_found": 0}
     for value in fields.values():
         counts["passed" if value.status == "ok" else value.status] += 1

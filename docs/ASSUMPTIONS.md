@@ -624,3 +624,107 @@ Each entry: decision, reason, phase it was made in.
     cost table carries the Anthropic prices, the trace's LLM calls record the
     provider and the model actually used, and `GET /health` shows
     `llm_provider`. Tests fake both providers (`tests/test_llm_fallback.py`).
+99. **Per-field evidence depth and hint coverage (extraction accuracy pass).**
+    The extraction eval sat at 0.87 / 0.895 because list-type fields
+    (required documents, delivery schedule, manufacturer requirements) were
+    extracted from six passages shared across many sub-topics, so items that
+    only appear once (business references, an attached affidavit form, a
+    "coordinate deliveries with ..." answer) fell outside the evidence. Three
+    changes, none bid-specific: (1) `config/fields.yaml` takes an optional
+    `top_k` per field (`FieldSpec.top_k`), honoured by the Retrieval agent and
+    the baseline; unset fields keep `agents.evidence_top_k`, and a widened
+    retry never returns fewer passages than the normal pass. (2) Field queries
+    are the field name with its first hints, a short description query, then
+    the remaining hints in groups of three as separate queries (a long joined
+    hint list dilutes BM25, so a passage matching one hint never surfaced);
+    `search_many` now reserves a share of the re-rank pool for every query's
+    own best candidates and re-ranks each candidate by its best cross-encoder
+    score over all the request's queries, in one batched call
+    (`Reranker.score_pairs`), instead of scoring against the first query only.
+    Single-query search (the retrieval eval, `/search`) is unchanged. (3) Field
+    descriptions state what the value is *not*: factory-configured options in a
+    quote are not installation services, SI#/SKU codes are part numbers rather
+    than model numbers, manufacturer-authorization requirements count for "MFG
+    for Registration" when no brand is named, and "no fixed date" delivery
+    schedules are described rather than reduced to a start month. The eval
+    matcher (`eval/loaders.normalize`) also ignores hyphens, dashes, slashes
+    and underscores, so "white-glove" / "W-9" / "Contract_Affidavit.pdf" match
+    the gold tokens "white glove" / "W9" / "Contract Affidavit"; letters and
+    digits still have to match exactly, so this is a normalisation fix, not a
+    loosened test.
+100. **Partial support of list values is corrected, not retried.** Both
+    bids ended with long list fields (required documents, specifications)
+    marked `failed` because one item out of many was not in the cited
+    evidence, and a retry re-extracted the same list. The Validator's
+    support check now returns `unsupported_items` per field (the items,
+    verbatim, whose facts the evidence does not state); when a list value
+    has some but not all items rejected, the node keeps the supported
+    items, drops the rest and writes "Validator removed N unsupported
+    item(s): ..." into the notes, and the field passes. A single-string
+    value, a list whose every item is rejected, or a verdict that names no
+    matching item still fails as before, so the correction cannot hide a
+    genuinely unsupported field. Every support verdict (supported, reason,
+    unsupported_items) is recorded as a `support_check` tool call in the
+    trace, which the brief's observability requirement asks for and which
+    earlier runs lacked (the reason strings were discarded). The critic sees
+    list values as JSON arrays (a "; "-joined string made it copy the whole
+    value as one "item"), a joined entry is split back into items as a
+    fallback, and Product Specification is asked for as a list (one item per
+    tier or component group) so that a single doubtful detail no longer
+    fails a whole multi-tier specification.
+101. **Due Date is normalized to `YYYY-MM-DD HH:MM TZ`.** The brief's
+    example record shows the due date in that shape; the extractors keep
+    returning the value as written (so quotes stay verifiable) and the
+    Report agent applies `normalize: datetime` from `config/fields.yaml`
+    (`FieldSpec.normalize`) after validation: `rules.format_datetime`
+    renders the first date, the stated time and the zone as written
+    ("Central" -> CT, "cst" -> CST); the original wording goes into the
+    notes as "As written: ...". A value with no parsable date is left
+    alone, and only Due Date uses it because Pre Bid Meeting and Delivery
+    Date are often windows or processes rather than one instant. The gold
+    `must_contain` tokens for Due Date follow the new format.
+102. **Bids can be removed (`remove_bid`).** Uploaded test bids (two stray
+    folders from web-app uploads) had no way out: they stayed in the
+    manifest, both stores, `outputs/` and `data/`. `SearchEngine.remove_bid`
+    deletes the bid's points, its BM25 corpus and its manifest entry;
+    `services.remove_bid` then deletes `outputs/<id>*`, `outputs/parsed/<id>/`
+    and the data folder, refuses while an extraction of that bid is running
+    (409), and is exposed as `DELETE /bids/{id}`, `python main.py remove <id>`
+    and a "Remove bid" button on the bid page. The smoke test uploads a
+    throwaway copy of the first bid and removes it again.
+103. **Addendum notes are de-duplicated.** On a retry the reconciler
+    re-applied the same clarification and the extractor often echoed the
+    decision text in its own notes, so records carried the same sentence
+    two or three times ("Clarified by Addendum 1: X. X"). `_join_notes` now
+    keeps the more complete of the two texts when one contains the other
+    and strips the trailing period of the decision text before it is wrapped.
+
+104. **`llm.max_tokens` 4000 -> 12000, `timeout_s` 60 -> 90, truncation is
+    named.** With 12 evidence passages for the documentation field (item 99)
+    the commercial/legal extractor's prompt grew to about 30k tokens and the
+    reasoning model spent the whole 4000-token output budget on hidden
+    reasoning: the reply came back empty, was retried with a "not valid for
+    the schema" hint (useless for an empty reply), failed again, and the
+    nine fields of that group went through two retry rounds before a smaller
+    retry prompt fitted. The providers now report when a reply stopped at the
+    limit (`finish_reason == "length"` / `stop_reason == "max_tokens"`),
+    `llm.structured` retries such a reply once with the unchanged prompt and
+    otherwise raises `LLMTruncated` whose message names the budget, and the
+    budget itself is raised so a group prompt of that size completes in one
+    call. Output tokens are paid for only when produced, so the higher cap
+    does not change the cost of ordinary calls.
+105. **An item is dropped only when it is also ungrounded.** The first run
+    with item 100's correction removed items that were right: Bid2's RAM,
+    display and OS specification lines (all verbatim on the spec sheet), the
+    attached Contract Affidavit, and six Bid1 product quantities, because the
+    critic's "unsupported" verdict is an LLM judgement and was taken as
+    final. `drop_unsupported_items` now receives the texts of every passage
+    retrieved for the field and keeps a named item whose content words
+    (three or more characters, function words ignored, at least 60 %)
+    occur in them; only an item the critic rejects *and* the evidence does
+    not contain is removed. An item with no evidence texts at hand (unit
+    tests, direct calls) is judged by the verdict alone as before. Two field
+    descriptions were also tightened after that run: Part_no excludes the
+    line numbers of a price sheet, and Payment Terms excludes clauses about a
+    vendor paying its own subcontractors.
+

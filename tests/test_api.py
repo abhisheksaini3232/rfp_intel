@@ -102,7 +102,8 @@ def test_extract_runs_in_background_then_record_has_20_fields(client, workspace)
 
     record = client.get(f"/bids/{BID}/record").json()
     assert set(record["fields"]) == set(field_names())
-    assert record["fields"]["Due Date"]["value"] == "July 9, 2024 at 2:00 PM CST"
+    assert record["fields"]["Due Date"]["value"] == "2024-07-09 14:00 CST"       # normalized by the Report agent
+    assert "As written: July 9, 2024 at 2:00 PM CST" in record["fields"]["Due Date"]["notes"]
 
     rows = {r["bid_id"]: r for r in client.get("/bids").json()}
     assert rows[BID]["due_date_changed_by"] == 2 and rows[BID]["agency"] == "Example County"

@@ -120,6 +120,23 @@ def index(
 
 
 @app.command()
+def remove(bid: str = typer.Argument(..., help="Bid id to delete from the index, outputs/ and data/")) -> None:
+    """Remove a bid everywhere (index, saved record and summaries, parsed files, data folder)."""
+    from rfp_intel import services
+    from rfp_intel.agents.runtime import close_engine
+
+    try:
+        result = services.remove_bid(Path(bid).name)
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2)
+    finally:
+        close_engine()
+    console.print(f"[bold]{result.bid_id}[/bold]: removed | indexed={result.indexed} "
+                  f"outputs_removed={result.outputs_removed} folder_removed={result.folder_removed}")
+
+
+@app.command()
 def search(
     query: str = typer.Argument(..., help="Search query"),
     bid: Optional[str] = typer.Option(None, "--bid", help="Bid id filter, e.g. Bid1"),

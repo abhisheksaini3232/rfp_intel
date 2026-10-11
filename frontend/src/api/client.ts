@@ -17,6 +17,7 @@ import type {
   GoNoGoReport,
   Health,
   IndexStats,
+  RemoveResult,
   RetrievalEval,
   RunInfo,
   RunStatus,
@@ -107,6 +108,9 @@ export const api = {
     for (const file of files) form.append("files", file, file.name);
     return request<IndexStats>("/bids", { method: "POST", body: form });
   },
+  /** Remove a bid from the index and delete its outputs and uploaded files. */
+  removeBid: (bidId: string) =>
+    request<RemoveResult>(`/bids/${encodeURIComponent(bidId)}`, { method: "DELETE" }),
   index: (folder: string, force = false) =>
     request<IndexStats>("/index", jsonInit("POST", { folder, force })),
   extract: (bidId: string) =>

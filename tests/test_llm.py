@@ -15,6 +15,9 @@ class DueDate(BaseModel):
     time_zone: str | None = None
 
 
+TRUNCATED = object()      # a reply that stopped at the output token limit
+
+
 class FakeProvider:
     """Returns queued replies and records the prompts it was sent."""
 
@@ -29,6 +32,8 @@ class FakeProvider:
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
             raise reply
+        if reply is TRUNCATED:
+            return llm.RawResponse(text="", tokens_in=100, tokens_out=4000, truncated=True)
         return llm.RawResponse(text=reply, tokens_in=100, tokens_out=10)
 
 
@@ -67,6 +72,25 @@ def test_structured_raises_llm_error_after_retry(fake):
     fake("not json", "still not json")
     with pytest.raises(llm.LLMError, match="invalid structured output"):
         llm.structured("p", DueDate, "m")
+
+
+def test_truncated_reply_is_retried_with_the_same_prompt(fake):
+    provider = fake(TRUNCATED, '{"date": "2024-07-09", "time_zone": null}')
+    obj, _ = llm.structured("original prompt", DueDate, "m")
+    assert obj.date == "2024-07-09"
+    assert provider.prompts == ["original prompt", "original prompt"]   # no "not valid" hint appended
+
+
+def test_truncated_twice_names_the_token_budget(fake):
+    fake(TRUNCATED, TRUNCATED)
+    with pytest.raises(llm.LLMError, match=r"truncated at llm\.max_tokens=\d+"):
+        llm.structured("p", DueDate, "m")
+
+
+def test_text_call_reports_truncation(fake):
+    fake(TRUNCATED)
+    with pytest.raises(llm.LLMTruncated):
+        llm.text("p", "m")
 
 
 def test_provider_error_propagates_as_llm_error(fake):

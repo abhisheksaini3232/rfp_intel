@@ -22,6 +22,11 @@ For each field decide:
   changed). Mark a field unsupported only when a date, number, name, amount or requirement
   in the value is absent from or contradicted by the evidence.
 - reason: one short sentence. If unsupported, say what is missing or contradicted.
+- unsupported_items: only for a value shown as a JSON array: the individual array items,
+  each copied verbatim as its own entry (never the whole array joined together), whose
+  facts are absent from or contradicted by the evidence. Leave it empty for a quoted
+  single-string value or when every item is supported. The system keeps the supported
+  items and drops the listed ones, so name only the items that really fail.
 
 Use ONLY the evidence passages. If the evidence does not contain the answer, the field is
 unsupported. Do not re-extract values; only judge support.

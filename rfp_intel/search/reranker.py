@@ -23,8 +23,12 @@ class Reranker:
 
     def score(self, query: str, passages: list[str]) -> list[float]:
         """Relevance score per passage (higher is better)."""
-        if not passages:
+        return self.score_pairs([(query, p) for p in passages])
+
+    def score_pairs(self, pairs: list[tuple[str, str]]) -> list[float]:
+        """Relevance score per (query, passage) pair in one model call."""
+        if not pairs:
             return []
         configure_torch()
-        scores = self._model.predict([(query, p) for p in passages], show_progress_bar=False)
+        scores = self._model.predict(pairs, show_progress_bar=False)
         return [float(s) for s in scores]

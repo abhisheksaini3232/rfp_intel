@@ -24,6 +24,7 @@ from rfp_intel.config import settings
 from rfp_intel.schemas import (
     Answer,
     BidDetail,
+    RemoveResult,
     BidRecord,
     BidSummary,
     Chunk,
@@ -234,6 +235,19 @@ def bid_detail(bid_id: str) -> BidDetail:
         return services.get_bid_detail(bid_id)
     except FileNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@app.delete("/bids/{bid_id}", response_model=RemoveResult)
+def remove_bid(bid_id: str) -> RemoveResult:
+    """Remove a bid from the index and delete its outputs and data folder."""
+    try:
+        return services.remove_bid(bid_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @app.get("/bids/{bid_id}/record", response_model=BidRecord)

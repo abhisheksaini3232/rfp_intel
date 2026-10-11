@@ -6,7 +6,8 @@ import pytest
 
 from rfp_intel.agents import runtime
 from rfp_intel.agents.graph import run_extraction, run_question
-from rfp_intel.config import field_names, settings
+from rfp_intel.agents.nodes.retrieve import field_queries, field_top_k
+from rfp_intel.config import FieldSpec, field_names, settings
 from rfp_intel.logging_utils import read_trace
 from rfp_intel.schemas import BidRecord
 from tests.graph_fakes import FakeEngine, ScriptedLLM, install
@@ -37,7 +38,8 @@ def test_extraction_graph_end_to_end(workspace, monkeypatch):
 
     assert set(record.fields) == set(field_names())
     due = record.fields["Due Date"]
-    assert due.value == "July 9, 2024 at 2:00 PM CST" and due.status == "ok"
+    assert due.value == "2024-07-09 14:00 CST" and due.status == "ok"     # normalized; wording kept in notes
+    assert "As written: July 9, 2024 at 2:00 PM CST" in due.notes
     assert due.sources[0].file == "addendum_2.pdf" and "July 9, 2024" in due.sources[0].quote
     assert "originally June 27, 2024" in due.notes
     assert [c.kind for c in record.addendum_changes] == ["override"]
@@ -144,3 +146,22 @@ def test_retrieve_searches_each_request_once(workspace, monkeypatch):
     step = [s for s in read_trace("t-qa-once") if s.node == "retrieve"][0]
     searches = [c for c in step.tool_calls if c["kind"] == "search"]
     assert len(searches) == 1 and searches[0]["queries"] == ["due date"] and searches[0]["hits"] == 3
+
+
+def test_field_top_k_prefers_the_field_setting(monkeypatch):
+    monkeypatch.setattr(settings.agents, "evidence_top_k", 6)
+    monkeypatch.setattr(settings.agents, "widened_top_k", 10)
+    plain = FieldSpec(name="Title", group="g", description="d")
+    deep = FieldSpec(name="Docs", group="g", description="d", top_k=12)
+    assert field_top_k(plain) == 6 and field_top_k(plain, widened=True) == 10
+    assert field_top_k(deep) == 12 and field_top_k(deep, widened=True) == 12
+
+
+def test_field_queries_cover_the_later_hints_in_small_groups():
+    spec = FieldSpec(name="Docs", group="g", description="Documents bidders must submit.",
+                     search_hints=["affidavit", "form", "certificate", "W-9", "insurance", "references",
+                                   "attachment", "price list"])
+    queries = field_queries(spec)
+    assert len(queries) == 4
+    assert queries[0].startswith("Docs affidavit form certificate W-9")
+    assert queries[2:] == ["insurance references attachment", "price list"]

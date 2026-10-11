@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Play } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Loader2, Play, Trash2 } from "lucide-react";
 import type { AddendumChange, BidRecord, DocumentSummary, FieldValue } from "@/api/types";
 import { CitationChip } from "@/components/CitationChip";
 import { FieldsTable } from "@/components/FieldsTable";
@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useBidDetail } from "@/hooks/useBids";
+import { useBidDetail, useRemoveBid } from "@/hooks/useBids";
 import { useCitationDrawer } from "@/hooks/useCitationDrawer";
 import { useExtractRun } from "@/hooks/useExtractRun";
 import { useGoNoGo, useRunGoNoGo } from "@/hooks/useGoNoGo";
@@ -54,7 +54,9 @@ function fieldText(record: BidRecord | null | undefined, name: string): string |
 export function BidDetailPage() {
   const { bidId = "" } = useParams<{ bidId: string }>();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const detail = useBidDetail(bidId);
+  const removal = useRemoveBid();
   const record = useRecord(bidId);
   const run = useExtractRun(bidId);
   const goNoGo = useGoNoGo(bidId);
@@ -113,14 +115,34 @@ export function BidDetailPage() {
           </div>
         }
         actions={
-          <Button
-            onClick={() => run.start()}
-            disabled={run.starting || run.running || Boolean(run.busyWith)}
-            title={run.busyWith ? `An extraction is running for ${run.busyWith}; wait for it to finish.` : undefined}
-          >
-            {run.starting || run.running || run.busyWith ? <Loader2 className="animate-spin" /> : <Play />}
-            {run.running ? "Extracting..." : run.busyWith ? `Busy: extracting ${run.busyWith}` : "Run extraction"}
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!window.confirm(`Remove ${bidId}? This deletes its index entries, outputs and uploaded files.`)) return;
+                removal.mutate(bidId, {
+                  onSuccess: () => {
+                    toast.success(`Removed ${bidId}`);
+                    navigate("/");
+                  },
+                  onError: (err) => toast.error(err.message),
+                });
+              }}
+              disabled={removal.isPending || run.running}
+              title={run.running ? "Wait for the running extraction to finish." : undefined}
+            >
+              {removal.isPending ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              Remove bid
+            </Button>
+            <Button
+              onClick={() => run.start()}
+              disabled={run.starting || run.running || Boolean(run.busyWith)}
+              title={run.busyWith ? `An extraction is running for ${run.busyWith}; wait for it to finish.` : undefined}
+            >
+              {run.starting || run.running || run.busyWith ? <Loader2 className="animate-spin" /> : <Play />}
+              {run.running ? "Extracting..." : run.busyWith ? `Busy: extracting ${run.busyWith}` : "Run extraction"}
+            </Button>
+          </>
         }
       />
 

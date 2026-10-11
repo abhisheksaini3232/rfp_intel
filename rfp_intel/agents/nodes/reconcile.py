@@ -84,11 +84,11 @@ def apply_decision(field: str, draft: FieldValue, decision: ReconcileDecision,
                            notes=_join_notes(note, draft.notes), status="ok")
     elif decision.kind == "addition":
         combined = _add_value(draft.value, decision.new_value)
-        note = f"Addendum {number} adds: {decision.new_value}."
+        note = f"Addendum {number} adds: {decision.new_value.rstrip('.')}."
         value = FieldValue(value=combined, sources=draft.sources + [citation], confidence=draft.confidence,
                            notes=_join_notes(note, draft.notes if draft.value is not None else ""), status="ok")
     else:  # clarification
-        note = f"Clarified by Addendum {number}: {decision.new_value}."
+        note = f"Clarified by Addendum {number}: {decision.new_value.rstrip('.')}."
         if draft.value is None:
             value = FieldValue(value=decision.new_value, sources=[citation], confidence=draft.confidence,
                                notes=note, status="ok")
@@ -159,4 +159,15 @@ def _add_value(current: str | list[str] | None, new: str) -> str | list[str]:
 
 
 def _join_notes(note: str, existing: str) -> str:
-    return f"{note} {existing}".strip() if existing and existing != "Not found in documents" else note
+    """Prepend the addendum note to the draft's notes without repeating either."""
+    if not existing or existing == "Not found in documents":
+        return note
+    if _squash(existing) in _squash(note):
+        return note
+    if _squash(note) in _squash(existing):
+        return existing
+    return f"{note} {existing}".strip()
+
+
+def _squash(text: str) -> str:
+    return "".join(text.split()).lower().rstrip(".")

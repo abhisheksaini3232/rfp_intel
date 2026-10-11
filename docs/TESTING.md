@@ -5,9 +5,9 @@ project root with the virtualenv active.
 
 | Layer | Command | Needs | What it proves |
 |---|---|---|---|
-| Unit + integration (fakes) | `pytest -q` | nothing (no network, no models, no key) | 257 tests: parsers, cleaner, classifier, chunker, search engine with fake models, graphs with a scripted LLM, validator rules, API, CLI, error handling, deployment switches, comparison and go/no-go agents |
-| Frontend | `cd frontend && npm run lint && npm test && npm run build` | Node 18+ | strict TypeScript, 26 Vitest tests (components, hooks, Compare page, Go/no-go panel), production build |
-| End-to-end smoke | `python -m eval.smoke_e2e` | API running on :8001, `.env` with an LLM key, bids indexed and extracted | 22 checks against the real engine, LLM and bids: every API endpoint and CLI mode, citations on every value, incremental indexing, the three retrieval configs, filters, the answer cache, "Not found" guardrail, background runs with traces, comparison, go/no-go, files on disk |
+| Unit + integration (fakes) | `pytest -q` | nothing (no network, no models, no key) | 302 tests: parsers, cleaner, classifier, chunker, search engine with fake models, graphs with a scripted LLM, validator rules, API, CLI, error handling, deployment switches, comparison and go/no-go agents |
+| Frontend | `cd frontend && npm run lint && npm test && npm run build` | Node 18+ | strict TypeScript, 27 Vitest tests (components, hooks, Compare page, Go/no-go panel), production build |
+| End-to-end smoke | `python -m eval.smoke_e2e` | API running on :8001, `.env` with an LLM key, bids indexed and extracted | 23 checks against the real engine, LLM and bids: every API endpoint and CLI mode, citations on every value, incremental indexing, the three retrieval configs, filters, the answer cache, "Not found" guardrail, background runs with traces, comparison, go/no-go, files on disk |
 
 The evaluations are separate commands with their own reports:
 `python main.py eval retrieval` (Recall@k / MRR per config, no LLM) and

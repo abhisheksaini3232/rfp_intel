@@ -88,6 +88,13 @@ class FakeEngine:
     def known_bids(self):
         return [self.bid]
 
+    def remove_bid(self, bid_id):
+        """True once for the known bid, then False (it is no longer indexed)."""
+        if bid_id != self.bid or getattr(self, "removed", False):
+            return False
+        self.removed = True
+        return True
+
     def search(self, query, filters=None, top_k=None, config=None):
         self.searches.append((query, filters.model_dump(exclude_none=True) if filters else {}))
         if self.empty:
@@ -142,8 +149,10 @@ class ScriptedLLM:
     """Stands in for llm.structured / llm.text; `overrides` tweak values per field per call."""
 
     def __init__(self, overrides: dict[str, list[tuple[str, str]]] | None = None, fail: Exception | None = None,
-                 reject_answer_once: bool = False, criterion_verdicts: dict[str, str] | None = None):
+                 reject_answer_once: bool = False, criterion_verdicts: dict[str, str] | None = None,
+                 unsupported_items: dict[str, list[str]] | None = None):
         self.overrides = overrides or {}
+        self.unsupported_items = unsupported_items or {}   # field -> items the support check rejects (once)
         self.criterion_verdicts = criterion_verdicts
         self.fail = fail
         self.reject_answer_once = reject_answer_once
@@ -170,7 +179,13 @@ class ScriptedLLM:
                 self.reject_answer_once = False
                 return SupportChecks(items=[SupportCheck(field="answer", supported=False,
                                                          reason="the evidence does not mention a portal")]), usage
-            return SupportChecks(items=[SupportCheck(field=n, supported=True) for n in names]), usage
+            items = []
+            for n in names:
+                rejected = self.unsupported_items.pop(n, None)
+                items.append(SupportCheck(field=n, supported=False, reason="item not in evidence",
+                                          unsupported_items=rejected) if rejected
+                             else SupportCheck(field=n, supported=True))
+            return SupportChecks(items=items), usage
         if model_cls is QAPlan:
             return QAPlan(question_type="single", bids=[], doc_types=[], queries=["due date"]), usage
         if model_cls is AnswerDraft:

@@ -41,6 +41,8 @@ class FakeReranker:
         self.calls = 0
 
     def score(self, query: str, passages: list[str]) -> list[float]:
+        return self.score_pairs([(query, p) for p in passages])
+
+    def score_pairs(self, pairs: list[tuple[str, str]]) -> list[float]:
         self.calls += 1
-        wanted = set(tokenize(query))
-        return [float(len(wanted & set(tokenize(p)))) for p in passages]
+        return [float(len(set(tokenize(q)) & set(tokenize(p)))) for q, p in pairs]

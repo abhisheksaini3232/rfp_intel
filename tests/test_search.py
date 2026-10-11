@@ -110,3 +110,14 @@ def test_query_embeddings_are_memoised(engine):
     engine.search("Laptop Quantity", SearchFilters(bid_id="MiniBid"))
     engine.search("Laptop Quantity", SearchFilters(bid_id="MiniBid"))
     assert len(calls) == 1
+
+
+def test_search_many_keeps_each_query_best_passage(engine):
+    """A passage that answers only the last query is still returned (per-query pool share,
+    best-over-queries re-rank)."""
+    hits = engine.search_many(["Product Specification Sheet docking station order",
+                               "Intel Core processor memory", "two year warranty coverage"],
+                              SearchFilters(bid_id="OtherBid"), top_k=3)
+    texts = " ".join(h.chunk.text for h in hits).lower()
+    assert "warranty coverage" in texts and "processor" in texts
+

@@ -18,12 +18,12 @@ Walked row by row at the end of Phase 8 and again after the Phase 9 bonuses (202
 | B7 | Re-ranking (cross-encoder) | config `hybrid_rerank`: Recall@5 1.000 | PASS |
 | B8 | Query rewriting / expansion | tests/test_query_expansion.py (synonyms.yaml) | PASS |
 | B9 | Citations: file, page, chunk text | `/search` hits carry the full Chunk; FieldValue.sources | PASS |
-| B10 | REST API + CLI (`POST /index`, `GET /search`, `POST /ask`) | tests/test_api.py; live curl of all 13 endpoints | PASS |
+| B10 | REST API + CLI (`POST /index`, `GET /search`, `POST /ask`) | tests/test_api.py, tests/test_remove_bid.py; live curl of all 14 endpoints (incl. `DELETE /bids/{id}`) | PASS |
 | B11 | >= 15 eval questions, Recall@k + MRR, >= 2 configs, table in README | 20 questions, 3 configs, eval/results/retrieval.md, README | PASS |
 | C1-C7 | Orchestrator, Ingestion, Retrieval, Extraction, Addendum Reconciliation, Validator, Q&A/Report agents | rfp_intel/agents/nodes/*; logs/example_trace.jsonl (bonus: compare.py, go_no_go.py) | PASS |
 | C8 | Framework choice explained | README "Agent framework and roles" | PASS |
 | C9 | Shared state object | rfp_intel/agents/state.py GraphState | PASS |
-| C10 | Validator feedback loop with max retries | trace shows two retry rounds; tests/test_graph.py retry tests | PASS |
+| C10 | Validator feedback loop with max retries | trace shows retry rounds and every support verdict; tests/test_graph.py retry tests; tests/test_validator_corrections.py (partial list support is corrected, not retried) | PASS |
 | C11 | Parallel agents where possible | three `retrieve` steps start within 10 ms (Send fan-out); tests/test_graph.py | PASS |
 | C12 | Structured outputs for all agent messages | rfp_intel/schemas.py; tests/test_schemas.py; llm.structured() | PASS |
 | C13 | Guardrails: "Not found in documents", >= 1 citation per value | tests/test_validator_rules.py, tests/test_baseline.py; outputs: 0 values without citation | PASS |
@@ -31,12 +31,12 @@ Walked row by row at the end of Phase 8 and again after the Phase 9 bonuses (202
 | C15 | Error handling: LLM timeout, bad JSON, empty retrieval | tests/test_error_handling.py (also wrong API key, broken engine) | PASS |
 | C16 | Extraction mode | `python main.py --bid ./data/Bid1` | PASS |
 | C17 | QA mode incl. the 5 example questions | eval/qa_log.md (12 answers, brief's five first) | PASS |
-| D1-D4 | 20 fields; value + sources + confidence + notes; addendum_changes + validation counts; due date with time + zone after addendums | outputs/Bid1.json, outputs/Bid2.json | PASS |
+| D1-D4 | 20 fields; value + sources + confidence + notes; addendum_changes + validation counts; due date with time + zone after addendums (`YYYY-MM-DD HH:MM TZ`, wording kept in notes) | outputs/Bid1.json, outputs/Bid2.json | PASS |
 | T1 | Python 3.10+ | developed on 3.12; requirements.txt | PASS |
 | T2 | Keys from env | .env only; config never prints keys | PASS |
 | T3 | One command | `python main.py --bid ./data/Bid1` | PASS |
 | T4 | Modular | rfp_intel/ingestion, search, agents, api | PASS |
-| T5 | Unit tests | `pytest -q`: 257 tests; frontend: 26 Vitest tests; `python -m eval.smoke_e2e`: 22 end-to-end checks (docs/TESTING.md) | PASS |
+| T5 | Unit tests | `pytest -q`: 304 tests; frontend: 27 Vitest tests; `python -m eval.smoke_e2e`: 23 end-to-end checks (docs/TESTING.md) | PASS |
 | T6 | Unseen bid works | data/MiniBid run with no code changes; no bid-specific strings in source | PASS (no real Bid3 available; see ASSUMPTIONS 78) |
 | G1 | Repo | https://github.com/abhisheksaini3232/rfp_intel | PASS |
 | G2 | README | README.md | PASS |

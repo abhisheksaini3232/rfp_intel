@@ -2,8 +2,8 @@
   "Bid Number": {"value": ["JA-207652", "168884"], "must_contain": ["JA-207652", "168884"]},
   "Title": {"value": "Student and Staff Computing Devices", "must_contain": ["Student and Staff Computing Devices"]},
   "Due Date": {
-    "value": "July 9, 2024 2:00 PM Central (changed by Addendum 2; originally June 27, 2024 2:00 PM)",
-    "must_contain": ["July 9, 2024", "2:00"]
+    "value": "2024-07-09 14:00 CST (changed by Addendum 2; originally June 27, 2024 2:00 PM)",
+    "must_contain": ["2024-07-09", "14:00", "CST"]
   },
   "Bid Submission Type": {
     "value": "Electronic via the Dallas ISD iSupplier portal (preferred) or one sealed hard copy to Procurement Services; no fax or email submissions",

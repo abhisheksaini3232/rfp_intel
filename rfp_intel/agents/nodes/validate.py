@@ -2,6 +2,10 @@
 then the retry decision (BUILD_PLAN 6.4).
 
 Checks per field: has_citation, quote_in_chunk, format_ok, consistent, supported.
+A list value whose items are only partly supported is corrected (the unsupported
+items are dropped and named in the notes) instead of being retried as a whole;
+an item is only dropped when its content words are also absent from the field's
+evidence texts, so a critic's false "unsupported" cannot delete a grounded item.
 A field that fails goes to `to_retry` while its retry count is below
 `agents.max_field_retries`; afterwards it is marked failed with low confidence.
 Confidence = 0.4 * normalized rerank score of the best cited hit + 0.3 * passed
@@ -11,13 +15,16 @@ were checked, else 0.5.
 
 from __future__ import annotations
 
+import json
+import re
+
 from rfp_intel import llm
 from rfp_intel.agents import rules
 from rfp_intel.agents.nodes.retrieve import evidence_key
 from rfp_intel.agents.runtime import load_prompt
 from rfp_intel.config import load_fields, settings
 from rfp_intel.logging_utils import log_step, record_tool_call
-from rfp_intel.schemas import Chunk, EvidenceBundle, FieldValue, SupportChecks, ValidationResult
+from rfp_intel.schemas import Chunk, EvidenceBundle, FieldValue, SupportCheck, SupportChecks, ValidationResult
 
 FAILED_CONFIDENCE = 0.2
 NOT_FOUND_HIGH, NOT_FOUND_LOW = 0.8, 0.5
@@ -55,12 +62,16 @@ def rule_checks(field: str, value: FieldValue, drafts: dict[str, FieldValue],
 
 
 def support_checks(bid_id: str, group: str, fields: dict[str, FieldValue],
-                   chunks: dict[str, Chunk]) -> tuple[dict[str, bool], str | None]:
-    """One LLM call per group: is each ok value supported by its cited quotes?"""
+                   chunks: dict[str, Chunk]) -> tuple[dict[str, SupportCheck], str | None]:
+    """One LLM call per group: is each ok value supported by its cited quotes?
+
+    Returns one SupportCheck per field (a field the LLM did not mention counts
+    as supported) and an error string when the call failed and was skipped.
+    """
     if not fields:
         return {}, None
     fields_block = "\n".join(
-        f"- {name}: value={rules.value_text(v)!r}; notes={v.notes!r}; quotes="
+        f"- {name}: value={_value_repr(v)}; notes={v.notes!r}; quotes="
         + " | ".join(f"[{c.chunk_id[-8:]}] {c.quote!r}" for c in v.sources)
         for name, v in fields.items()
     )
@@ -72,9 +83,84 @@ def support_checks(bid_id: str, group: str, fields: dict[str, FieldValue],
     try:
         result, _ = llm.structured(prompt, SupportChecks, settings.env.reason_model)
     except Exception as exc:  # noqa: BLE001 - the check is skipped, not fatal
-        return {name: True for name in fields}, f"validate: support check failed for {group}: {type(exc).__name__}: {exc}"
-    verdicts = {_key(item.field): item.supported for item in result.items}
-    return {name: verdicts.get(_key(name), True) for name in fields}, None
+        skipped = {name: SupportCheck(field=name, supported=True, reason="support check skipped") for name in fields}
+        return skipped, f"validate: support check failed for {group}: {type(exc).__name__}: {exc}"
+    verdicts = {_key(item.field): item for item in result.items}
+    return {name: verdicts.get(_key(name), SupportCheck(field=name, supported=True)) for name in fields}, None
+
+
+def _value_repr(value: FieldValue) -> str:
+    """A list value as a JSON array (one item per line entry) so the critic can name single items."""
+    if isinstance(value.value, list):
+        return json.dumps(value.value, ensure_ascii=False)
+    return repr(rules.value_text(value))
+
+
+def drop_unsupported_items(value: FieldValue, check: SupportCheck,
+                           evidence_texts: list[str] | None = None) -> FieldValue | None:
+    """A list value without the items the Validator found unsupported, or None.
+
+    Only applies when some (not all) items of a list value are unsupported and
+    at least one reported item matches a list item; the dropped items are
+    named in the notes so the correction is visible in the record. With
+    `evidence_texts`, an item the critic names is still kept when its content
+    words occur in those texts (the LLM verdict alone never deletes a grounded
+    item); without texts the verdict is taken as is.
+    """
+    if check.supported or not isinstance(value.value, list) or not check.unsupported_items:
+        return None
+    reported = _split_reported(check.unsupported_items, value.value)
+    keep = [item for item in value.value
+            if not _mentioned(item, reported) or (evidence_texts is not None and grounded(item, evidence_texts))]
+    if not keep or len(keep) == len(value.value):
+        return None
+    dropped = [item for item in value.value if item not in keep]
+    note = f"Validator removed {len(dropped)} unsupported item(s): " + "; ".join(dropped) + "."
+    return value.model_copy(update={"value": keep, "notes": _join(value.notes, note)})
+
+
+def _split_reported(reported: list[str], items: list[str]) -> list[str]:
+    """Reported entries that are several list items joined with "; " are split back into items.
+
+    The critic sometimes copies the whole joined value instead of single
+    items; splitting keeps the item-level comparison honest in that case.
+    """
+    keys = {_key(i) for i in items}
+    out: list[str] = []
+    for text in reported:
+        if _key(text) in keys or "; " not in text:
+            out.append(text)
+        else:
+            out.extend(part for part in text.split("; ") if part.strip())
+    return out
+
+
+GROUNDED_SHARE = 0.6            # share of an item's content words that must occur in the evidence
+_WORD = re.compile(r"[a-z0-9][a-z0-9.\-/#]*")
+_GENERIC = frozenset("""the and for with from that this not are per each any all one two three minimum required
+    must shall will may into than then also only such other more most upon within without including include
+    including""".split())
+
+
+def grounded(item: str, evidence_texts: list[str]) -> bool:
+    """Do most of the item's content words occur in the evidence texts?
+
+    Content words are tokens of three or more characters that are not generic
+    function words; comparison ignores case and whitespace. An item with no
+    content words is treated as grounded (nothing to check).
+    """
+    words = [w for w in _WORD.findall(item.lower()) if len(w) >= 3 and w not in _GENERIC]
+    if not words:
+        return True
+    corpus = _key(" ".join(evidence_texts))
+    found = sum(_key(w) in corpus for w in words)
+    return found / len(words) >= GROUNDED_SHARE
+
+
+def _mentioned(item: str, reported: list[str]) -> bool:
+    """Does one of the reported (unsupported) items name this list item?"""
+    squashed = _key(item)
+    return any(_key(r) and (_key(r) in squashed or squashed in _key(r)) for r in reported)
 
 
 def confidence_for(value: FieldValue, passed: bool, no_conflict: bool, scores: dict[str, float],
@@ -103,11 +189,19 @@ def validate(state: dict) -> dict:
     for group in sorted({g for g in groups.values() if g != "report"}):
         ok_fields = {n: v for n, v in drafts.items() if groups.get(n) == group and v.status == "ok"
                      and all(checks[n].values())}
-        supported, error = support_checks(bid_id, group, ok_fields, chunks)
+        verdicts, error = support_checks(bid_id, group, ok_fields, chunks)
         if error:
             errors.append(error)
         for name in ok_fields:
-            checks[name]["supported"] = supported.get(name, True)
+            check = verdicts.get(name, SupportCheck(field=name, supported=True))
+            trimmed = drop_unsupported_items(drafts[name], check, _evidence_texts(name, evidence))
+            if trimmed is not None:                 # partial support: keep the supported items
+                drafts[name], check = trimmed, check.model_copy(update={"supported": True})
+            checks[name]["supported"] = check.supported
+        if verdicts:
+            record_tool_call("support_check", group=group,
+                             verdicts={n: {"supported": c.supported, "reason": c.reason,
+                                           "unsupported_items": c.unsupported_items} for n, c in verdicts.items()})
 
     validation: dict[str, ValidationResult] = {}
     updated: dict[str, FieldValue] = {}
@@ -137,6 +231,11 @@ def validate(state: dict) -> dict:
 
 
 _EMPTY = EvidenceBundle(request={"field_or_question": "", "queries": [], "filters": {}}, hits=[], expanded_queries=[])  # type: ignore[arg-type]
+
+
+def _evidence_texts(field: str, evidence: dict[str, EvidenceBundle]) -> list[str]:
+    """Texts of every passage retrieved for a field (its own and its addendum bundle)."""
+    return [h.chunk.text for key in (field, evidence_key(field, True)) for h in evidence.get(key, _EMPTY).hits]
 
 
 def _key(name: str) -> str:

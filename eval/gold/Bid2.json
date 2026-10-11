@@ -1,7 +1,7 @@
 {
   "Bid Number": {"value": ["PORFP #E20P4600040", "eMMA BPM044557"], "must_contain": ["E20P4600040", "BPM044557"]},
   "Title": {"value": "Dell Laptops w/Extended Warranty", "must_contain": ["Dell Laptops"]},
-  "Due Date": {"value": "June 10, 2024 2:00 PM EDT", "must_contain": ["2:00", "EDT"]},
+  "Due Date": {"value": "2024-06-10 14:00 EDT", "must_contain": ["2024-06-10", "14:00", "EDT"]},
   "Bid Submission Type": {
     "value": "Electronic only via eMMA; no email, fax, mail or hand delivery",
     "must_contain": ["eMMA"]

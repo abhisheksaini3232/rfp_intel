@@ -255,6 +255,26 @@ class Smoke:
             json.loads((ROOT / "outputs" / f"{bid}.json").read_text(encoding="utf-8"))
         return f"{len(expected)} files present"
 
+    def check_upload_and_remove(self) -> str:
+        """Upload a copy of the first bid as a throwaway bid, then DELETE it."""
+        tmp_bid = "SmokeTmp"
+        source = ROOT / "data" / self.bids[0]
+        files = [("files", (path.name, path.read_bytes())) for path in sorted(source.iterdir())
+                 if path.suffix.lower() in (".pdf", ".html", ".htm")]
+        upload = httpx.post(f"{self.api}/bids", data={"bid_id": tmp_bid}, files=files, timeout=600)
+        assert upload.status_code == 200, f"upload -> {upload.status_code}: {upload.text[:200]}"
+        chunks = upload.json()["chunks_total"]
+        assert tmp_bid in {r["bid_id"] for r in self.get("/bids")}, "uploaded bid not listed"
+        removed = httpx.delete(f"{self.api}/bids/{tmp_bid}", timeout=120)
+        assert removed.status_code == 200, f"delete -> {removed.status_code}: {removed.text[:200]}"
+        body = removed.json()
+        assert body["indexed"] and body["folder_removed"], body
+        assert tmp_bid not in {r["bid_id"] for r in self.get("/bids")}, "bid still listed after DELETE"
+        assert tmp_bid not in self.get("/health")["indexed_bids"], "bid still indexed after DELETE"
+        assert httpx.delete(f"{self.api}/bids/{tmp_bid}", timeout=60).status_code == 404
+        assert not (ROOT / "data" / tmp_bid).exists()
+        return f"uploaded {len(files)} files ({chunks} chunks), removed; second DELETE -> 404"
+
     def check_cli_help(self) -> str:
         result = self.cli("--help")
         assert result.returncode == 0
@@ -297,6 +317,7 @@ class Smoke:
         self.run("API: saved records have 20 fields, every value cited", self.check_records)
         self.run("API: eval results endpoints", self.check_eval_endpoints)
         self.run("API: oversized question rejected", self.check_question_limit)
+        self.run("API: upload a throwaway bid, then DELETE /bids/{id}", self.check_upload_and_remove)
         self.run("CLI: --help lists every command", self.check_cli_help)
         self.run("CLI: parse writes outputs/parsed", self.check_cli_parse)
         if not self.skip_llm:

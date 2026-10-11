@@ -514,6 +514,7 @@ sequenceDiagram
 | `list_bids()`, `get_bid_detail()`, `get_record()` | - | `GET /bids`, `/bids/{id}`, `/bids/{id}/record` |
 | `get_chunk(chunk_id)` | - | `GET /chunks/{id}` |
 | `save_upload(bid_id, files)` | - | `POST /bids` (only .pdf/.html/.htm, id `^[A-Za-z0-9_-]{1,64}$`) |
+| `remove_bid(bid_id)` | `remove` | `DELETE /bids/{id}`: drops the bid from both stores and the manifest (`SearchEngine.remove_bid`), deletes `outputs/<id>*` and `outputs/parsed/<id>/`, then the data folder; 409 while an extraction of it runs |
 | `safe_file_path(bid_id, name)` | - | `GET /files/{bid}/{file}` (rejects paths that escape the bid folder) |
 | `eval_results(kind)` | - | `GET /eval/retrieval`, `/eval/extraction` |
 

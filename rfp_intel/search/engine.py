@@ -6,8 +6,10 @@
 
 Search: parse filters from the query -> expand the query -> vector and BM25
 retrieval per query variant -> RRF -> cross-encoder re-rank -> top_k hits.
-`search_many` does the same for several queries with one fusion and one
-re-rank pass (the Retrieval agent uses it for every evidence request).
+`search_many` does the same for several queries about one topic: one fusion,
+a per-query share of the re-rank pool and one re-rank call that scores every
+candidate against every query (the Retrieval agent uses it for every evidence
+request).
 """
 
 from __future__ import annotations
@@ -111,6 +113,18 @@ class SearchEngine:
         """Bids present in the manifest."""
         return sorted(key for key in self._read_manifest() if not key.startswith("_"))
 
+    def remove_bid(self, bid_id: str) -> bool:
+        """Drop a bid's chunks from both stores and the manifest; False when it was not indexed."""
+        manifest = self._read_manifest()
+        if bid_id not in manifest:
+            return False
+        self.vectors.delete_by_bid(bid_id)
+        self.bm25.delete(bid_id)
+        del manifest[bid_id]
+        self._write_manifest(manifest)
+        logger.info("removed bid %s from the index", bid_id)
+        return True
+
     def index_bid(self, folder: Path, force: bool = False) -> IndexStats:
         """Index a bid folder; unchanged bids are skipped, changed bids are rebuilt."""
         started = time.perf_counter()
@@ -153,38 +167,44 @@ class SearchEngine:
         """Hybrid search for several queries about the same topic, fused and re-ranked once.
 
         Every query (and its synonym variants) contributes a vector list and a
-        BM25 list to one RRF fusion; the cross-encoder then scores the top
-        `rerank_top_n` fused candidates against the first query. This costs one
-        batched query embedding and one re-rank pass instead of one per query.
+        BM25 list to one RRF fusion. The re-rank pool is the top `rerank_top_n`
+        fused candidates plus each query's own top share (rerank_top_n divided
+        by the number of queries), so a passage that answers only one
+        sub-topic of a multi-topic field is still a candidate. The cross-encoder
+        scores the pool against every query in one batched call and keeps each
+        candidate's best score. One query embedding batch, one re-rank call.
         """
         cfg = settings.retrieval_for(config)
         queries = [q for q in queries if q and q.strip()]
         if not queries:
             return []
         known = self.known_bids()
-        variants: list[tuple[str, SearchFilters]] = []
-        rerank_query = ""
+        variants: list[tuple[str, SearchFilters, str]] = []
+        rerank_queries: list[str] = []
         for query in queries:
             parsed, cleaned = parse_filters(query, known)
             merged = merge_filters(parsed, filters)
-            rerank_query = rerank_query or cleaned
-            variants.extend((variant, merged) for variant in expand_query(cleaned))
+            if cleaned and cleaned not in rerank_queries:
+                rerank_queries.append(cleaned)
+            variants.extend((variant, merged, cleaned) for variant in expand_query(cleaned))
 
         chunks: dict[str, Chunk] = {}
         ranks: dict[str, dict[str, int]] = {}
-        lists: list[list[str]] = []
-        vectors = self._query_vectors([text for text, _ in variants])
-        for (variant, merged), vector in zip(variants, vectors, strict=True):
+        per_query: dict[str, list[list[str]]] = {}      # cleaned query -> its ranked lists
+        vectors = self._query_vectors([text for text, _, _ in variants])
+        for (variant, merged, cleaned), vector in zip(variants, vectors, strict=True):
+            lists = per_query.setdefault(cleaned, [])
             hits = self.vectors.search(vector, merged, cfg.candidates_per_retriever)
             lists.append(_collect(hits, "vector", chunks, ranks))
             if cfg.use_bm25:
                 hits = self.bm25.search(variant, merged, cfg.candidates_per_retriever)
                 lists.append(_collect(hits, "bm25", chunks, ranks))
 
-        fused = rrf(lists, cfg.rrf_k)
+        fused = rrf([ranked for lists in per_query.values() for ranked in lists], cfg.rrf_k)
         if cfg.use_reranker and settings.reranker.enabled and fused:
             top_n = min(cfg.rerank_top_n, settings.reranker.max_passages or cfg.rerank_top_n)
-            fused = self._rerank(rerank_query, fused[:top_n], chunks, ranks)
+            pool = _candidate_pool(fused, per_query, top_n, cfg.rrf_k)
+            fused = self._rerank(rerank_queries, pool, chunks, ranks)
         limit = top_k or cfg.final_top_k
         return [SearchHit(chunk=chunks[cid], score=score, ranks=ranks[cid]) for cid, score in fused[:limit]]
 
@@ -198,12 +218,14 @@ class SearchEngine:
                 self._query_cache.pop(next(iter(self._query_cache)))
         return [self._query_cache[t] for t in texts]
 
-    def _rerank(self, query: str, fused: list[tuple[str, float]], chunks: dict[str, Chunk],
+    def _rerank(self, queries: list[str], ids: list[str], chunks: dict[str, Chunk],
                 ranks: dict[str, dict[str, int]]) -> list[tuple[str, float]]:
-        """Re-order fused candidates by cross-encoder score."""
-        ids = [cid for cid, _ in fused]
-        scores = self.reranker.score(query, [embed_text(chunks[cid]) for cid in ids])
-        ordered = sorted(zip(ids, scores), key=lambda pair: pair[1], reverse=True)
+        """Re-order candidate ids by their best cross-encoder score over `queries` (one call)."""
+        queries = queries or [""]
+        passages = [embed_text(chunks[cid]) for cid in ids]
+        scores = self.reranker.score_pairs([(query, passage) for query in queries for passage in passages])
+        best = [max(scores[i::len(passages)]) for i in range(len(passages))]
+        ordered = sorted(zip(ids, best), key=lambda pair: pair[1], reverse=True)
         for rank, (cid, _) in enumerate(ordered, start=1):
             ranks[cid]["rerank"] = rank
         return ordered
@@ -237,6 +259,22 @@ def merge_filters(parsed: SearchFilters, explicit: SearchFilters | None) -> Sear
     if explicit.bid_id or explicit.bid_ids:
         data["bid_id"], data["bid_ids"] = explicit.bid_id, explicit.bid_ids
     return SearchFilters(**data)
+
+
+def _candidate_pool(fused: list[tuple[str, float]], per_query: dict[str, list[list[str]]],
+                    top_n: int, rrf_k: int) -> list[str]:
+    """Re-rank candidates: the global fused top_n plus every query's own top share.
+
+    With several queries the global fusion favours passages that match the
+    first query's wording; reserving top_n / n_queries slots per query keeps
+    a passage that is the best answer to one sub-topic in the pool.
+    """
+    pool = [cid for cid, _ in fused[:top_n]]
+    if len(per_query) > 1:
+        share = -(-top_n // len(per_query))              # ceiling division
+        for lists in per_query.values():
+            pool += [cid for cid, _ in rrf(lists, rrf_k)[:share] if cid not in pool]
+    return pool
 
 
 def _collect(hits: list[tuple[Chunk, float]], retriever: str, chunks: dict[str, Chunk],

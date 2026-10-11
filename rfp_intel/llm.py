@@ -57,6 +57,10 @@ class LLMAuthError(LLMError):
     """The provider rejected the API key (missing, invalid or not permitted)."""
 
 
+class LLMTruncated(LLMError):
+    """The reply stopped at `llm.max_tokens` (reasoning models count hidden reasoning tokens against it)."""
+
+
 @dataclass
 class RawResponse:
     """What a provider returns before validation."""
@@ -64,6 +68,7 @@ class RawResponse:
     text: str
     tokens_in: int
     tokens_out: int
+    truncated: bool = False              # the provider stopped at the output token limit
 
 
 class Provider(Protocol):
@@ -88,8 +93,12 @@ def structured(
     attempt_prompt, total = prompt, Usage()
     last_error = ""
     for _ in range(settings.llm.max_json_retries + 1):
-        raw, usage = _call(attempt_prompt, system_text, model, schema if is_strict else None,
-                           model_cls.__name__)
+        try:
+            raw, usage = _call(attempt_prompt, system_text, model, schema if is_strict else None,
+                               model_cls.__name__)
+        except LLMTruncated as exc:        # nothing to correct: retry the same prompt once more
+            last_error, attempt_prompt = str(exc), prompt
+            continue
         total = total + usage
         try:
             return model_cls.model_validate_json(_strip_fences(raw)), total
@@ -232,6 +241,9 @@ def _call(
     if cache_file is not None:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(json.dumps({"text": raw.text}), encoding="utf-8")
+    if raw.truncated:
+        raise LLMTruncated(f"reply truncated at llm.max_tokens={settings.llm.max_tokens} "
+                           f"({raw.tokens_out} output tokens incl. reasoning); raise llm.max_tokens in config/settings.yaml")
     return raw.text, usage
 
 
@@ -336,6 +348,7 @@ class OpenAIProvider:
             text=choice.message.content or "",
             tokens_in=usage.prompt_tokens if usage else 0,
             tokens_out=usage.completion_tokens if usage else 0,
+            truncated=getattr(choice, "finish_reason", None) == "length",
         )
 
     def _create_with_temperature_fallback(self, params: dict[str, Any]) -> Any:
@@ -399,6 +412,7 @@ class AnthropicProvider:
             text=text_out,
             tokens_in=response.usage.input_tokens,
             tokens_out=response.usage.output_tokens,
+            truncated=response.stop_reason == "max_tokens",
         )
 
     def _create_with_temperature_fallback(self, params: dict[str, Any]) -> Any:
